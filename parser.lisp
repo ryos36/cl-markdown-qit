@@ -5,15 +5,15 @@
       (:parser . first-space-to-escaped-space)
       (:word-split . python-word-split)
       (:tag-to-span . python-tag-to-span))
+
     (:python 
       (:name . :python)
       (:parser . python-line-parser)
       (:word-split . python-word-split)
-      (:tag-to-span . python-tag-to-span))))
-#|
+      (:tag-to-span . python-tag-to-span)
       (:mode-set (:|triple-single-quote| . python-triple-single-quote)
-                 (:|triple-double-quote| . python-triple-double-quote)))))
-|#
+                 (:|triple-double-quote| . python-triple-double-quote)
+                 (:|id-double-quote| . python-double-quote)))))
 
 (defun make-keyword (str)
   (intern (string-upcase str) :keyword))
@@ -130,12 +130,38 @@
   (error "Not Implement Yet"))
 
 ;----------------------------------------------------------------
-(defun python-triple-single-quote (line)
-  (error "Not Implement Yet"))
+(defun python-triple-single-quote (line opt-lst &optional rv)
+  (let ((new-mode (if (cl-ppcre:scan "^\s*'''" line) nil :|triple-single-quote|)))
+    (values `((,line . :|triple-single-quote|)) new-mode)))
 
 ;----------------------------------------------------------------
-(defun python-triple-doub (line)
-  (error "Not Implement Yet"))
+(defun python-triple-double-quote (line opt-lst &optional rv)
+  (let ((new-mode (if (cl-ppcre:scan "^\s*\"\"\"" line) nil :|triple-double-quote|)))
+    (values `((,line . :|triple-single-quote|)) new-mode)))
+
+;----------------------------------------------------------------
+(defun python-double-quote (line opt-lst &optional rv)
+  (if (= (length line) 1)
+    (values `((,line . :|id-double-quote|))
+            (if (not (eq (char line 0) #\")) :|id-double-quote|))
+    (multiple-value-bind (start end)
+        (cl-ppcre:scan "[^\\\\]\"" line)
+      (if end
+        (let ((quoted-str-pair `(,(subseq line 0 end) . :|id-double-quote|))
+              (remain-str (subseq line end)))
+          (if (> (length remain-str) 0)
+              (multiple-value-bind (lst mode)
+                (python-line-parser remain-str opt-lst)
+                (values (cons quoted-str-pair lst) mode))
+              (list quoted-str-pair)))
+        (values `((,line . :|id-double-quote|)) :|id-double-quote|)))))
+
+;----------------------------------------------------------------
+(defun python-continue-line-p (line)
+  (let* ((line-len (length line))
+         (last_1 (if (> line-len 1) (char line (- line-len 2))))
+         (last (char line (- line-len 1))))
+    (and (eq last #\\) (not (eq last_1 #\\)))))
 
 ;----------------------------------------------------------------
 ; Python 用なんちゃってパーザ
@@ -199,7 +225,8 @@
                              (subseq line end0)
                              opt-lst
                              (cons `(,(subseq line 0 end0) . :|id-double-quote|) rv))
-                           (values `((,line . :|id-double-quote|) ,@rv) :|id-double-quote|)))))
+                           (values (nreverse `((,line . :|id-double-quote|) ,@rv))
+                                   (if (python-continue-line-p line) :|id-double-quote|))))))
 
                     ((eq first-char #\')
                      (if (= line-len 1)
@@ -211,7 +238,8 @@
                              (subseq line end0)
                              opt-lst
                              (cons `(,(subseq line 0 end0) . :|id-single-quote|) rv))
-                           (values `((,line . :|id-single-quote|) ,@rv) :|id-single-quote|)))))
+                           (values (nreverse `((,line . :|id-single-quote|) ,@rv))
+                                   (if (python-continue-line-p line) :|id-single-quote|))))))
                     (t (multiple-value-bind (start2 end2)
                                 (cl-ppcre:scan "^[^\"'#\\s]+" line)
                               ;(print `(:line ,line ,start2, end2))
@@ -233,7 +261,10 @@
 
 ;----------------------------------------------------------------
 (defun get-mode-function (key opt-lst)
-  (symbol-function 'python-line-parser))
+  (let* ((func (cdr (assoc key (cdr (assoc :mode-set (cdr (assoc :lang opt-lst)))))))
+         (new-func (if func func
+                     (cdr (assoc :parser (cdr (assoc :pre-set *lang-set*)))))))
+    (symbol-function new-func)))
 
 ;----------------------------------------------------------------
 (defun merge-lang-option (opt-lst)
@@ -258,7 +289,8 @@
                     (multiple-value-bind
                         (a-rv new-mode) (funcall parser line decorate-option nil )
                       ;(print `(:mode ,mode :new-mode ,new-mode))
-                      (let ((new-parser (if mode (get-mode-function mode decorate-option) main-parser)))
+                      (let ((new-parser (if new-mode (get-mode-function new-mode decorate-option) main-parser)))
+
                         (read-until-end-of-block new-parser (cons a-rv rv) new-mode)))))))
       ;(print `(:|triple-single-quote| ,first-line-option ,main-parser))
       (print  "decorate-option start")
