@@ -8,18 +8,21 @@
   (let* ((optlst (cl-ppcre:split "\\s+" opt))
          (x (print `(:x ,opt ,optlst)))
          (lang-fname (cl-ppcre:split ":" (car optlst)))
-         (lang (car optlst))
-         (fname (cadr optlst)))
+         (lang (car lang-fname))
+         (fname (cadr lang-fname)))
     (labels ((to-keyword (str)
                (let ((start-pos 
-                       (if (char-equal (elt str 0) #\:) 1 0)))
+                       (if (char-equal (char str 0) #\:) 1 0)))
                  (intern (string-upcase (subseq str start-pos)) :keyword)))
              (take-two-by-two (lst rv)
                (if (null lst) rv
                  (let ((keyword (to-keyword (car lst)))
                        (value (cadr lst)))
-                   (take-two-by-two (cddr lst)
-                      (cons (list keyword value) rv)))))
+                   (if (or (null value) (char-equal (char value 0) #\:))
+                     (take-two-by-two (cdr lst)
+                        (cons (list keyword t) rv))
+                     (take-two-by-two (cddr lst)
+                        (cons (list keyword value) rv))))))
              (enclose-list (cur-keyword cur-list remain rv)
                 (if (null remain) (nreverse (cons (cons cur-keyword cur-list) rv))
                   (let ((next-key-value (car remain))
@@ -46,13 +49,32 @@
                     #'(lambda (a b) (string< (string (car a)) (string (car b))))))
              ))))
 
+;----------------------------------------------------------------
+(defun get-lang-option (opt-lst)
+  opt-lst)
 
-(defun |mw/```| (x stream) 
-  (if (> (length x) 0)
-    (print `(:parse-decorations-for-lang , (parse-decorations-for-lang x))))
-  (print  `(:split ,(cl-ppcre:split "\\s+" x)))
-  `(:h3 ,x))
+;----------------------------------------------------------------
+(defun get-nolang-option (&options opt-lst)
+  opt-lst)
 
+;----------------------------------------------------------------
+(defun |mw/```| (first-line-option stream) 
+  (let ((decorate-option 
+          (if (> (length first-line-option) 0)
+            (get-lang-option
+              (parse-decorations-for-lang first-line-option))
+            (get-nolang-option))))
+
+    (labels ((read-until-end-of-block (rv)
+                (let ((line (read-line stream)))
+                  (if (cl-ppcre:scan "^```[\\s]*" line) (nreverse rv)
+                    (read-until-end-of-block (cons line rv))))))
+      (print `(:|'''| ,first-line-option ,decorate-option))
+      (print  "decorate-option start")
+      (map nil #'print (read-until-end-of-block nil))
+      (print  "decorate-option END"))))
+
+;----------------------------------------------------------------
 (defun interp-a-markdown (stream)
   (let ((line (read-line stream)))
     (print `(:line ,line))
