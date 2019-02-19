@@ -1,3 +1,4 @@
+(defparameter *tabstop* 4)
 
 (defun |mw/*| (x stream) `(:h1 ,x))
 (defun |mw/**| (x stream) `(:h2 ,x))
@@ -48,6 +49,41 @@
                     (take-two-by-two (cdr optlst) nil)
                     #'(lambda (a b) (string< (string (car a)) (string (car b))))))
              ))))
+
+;----------------------------------------------------------------
+(defun tab-to-space (line opt-lst)
+  (let* ((opt-tabstop (cdr (assoc :tabstop opt-lst)))
+         (tabstop-n (if opt-tabstop opt-tabstop *tabstop*))
+         (replace-space (format nil "~V@{ ~}" tabstop-n :dummy)))
+    (cl-ppcre:regex-replace-all "\\t" line replace-space)))
+
+;----------------------------------------------------------------
+;先頭から続くタブを空白に変換
+(defun first-tab-to-space (line opt-lst)
+  (multiple-value-bind (start-pos end-pos) (cl-ppcre:scan "^[\\s]*" line)
+    (let ((first (subseq line start-pos end-pos))
+          (remain (subseq line end-pos)))
+      (if first
+        (concatenate 'string (tab-to-space first opt-lst) remain)
+        line))))
+
+;----------------------------------------------------------------
+(defun space-to-escaped-space (line)
+    (cl-ppcre:regex-replace-all " " line "&#x20;"))
+
+;----------------------------------------------------------------
+(defun first-space-to-escaped-space (line)
+  (multiple-value-bind (start-pos end-pos) (cl-ppcre:scan " *" line)
+    (let ((first (subseq line start-pos end-pos))
+          (remain (subseq line end-pos)))
+      (if first
+        (concatenate 'string (space-to-escaped-space first) remain)
+        line))))
+
+;----------------------------------------------------------------
+(defun text-line-to-div (line opt-lst)
+  (print `(:text-line-to-div ,line))
+  (first-space-to-escaped-space (first-tab-to-space line opt-lst)))
 
 ;----------------------------------------------------------------
 (defun get-lang-option (opt-lst)
