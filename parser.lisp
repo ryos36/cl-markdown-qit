@@ -86,6 +86,12 @@
   word)
 
 ;----------------------------------------------------------------
+(defun scan-strings-parser (line)
+  (let ((first-char (char line 0)))
+
+    (cl-ppcre:scan (format nil "[^\\\\]~a" first-char) line)))
+
+;----------------------------------------------------------------
 ; Python 用なんちゃってパーザ
 ; 空白で区切る程度
 ; mode は :double-quote :quote :|triple-single-quote| :|triple-quote|
@@ -118,6 +124,7 @@
                 (let ((line-len (length line))
                       (first-char (char line 0)))
 
+                  (print `(:lf ,line-len ,first-char ,line))
                   (cond 
                     ((and (eq first-char #\")
                               (>= line-len 3)
@@ -137,32 +144,37 @@
 
                     ((eq first-char #\")
                      (if (= line-len 1)
-                       (values `((,line :|id-double-quote|) ,@rv) :|id-double-quote|))
-                     (multiple-value-bind (start0 end0)
-                       (scan-strings-parser line)
-                       (if end0
-                         (python-line-parser 
-                           (subseq line end0) 
-                           opt-lst
-                           (cons (subseq lne 0 end0) rv))
-                         (values `((,line :|id-double-quote|) ,@rv) :|id-double-quote|))))
+                       (values `((,line :|id-double-quote|) ,@rv) :|id-double-quote|)
+                       (multiple-value-bind (start0 end0)
+                         (scan-strings-parser line)
+
+                         (if end0
+                           (python-line-parser 
+                             (subseq line end0)
+                             opt-lst
+                             (cons `(,(subseq line 0 end0) :|id-double-quote|) rv))
+                           (values `((,line :|id-double-quote|) ,@rv) :|id-double-quote|)))))
 
                     ((eq first-char #\')
                      (if (= line-len 1)
-                       (values `((,line :|id-single-quote|) ,@rv) :|id-single-quote|))
-                     (multiple-value-bind (start1 end1)
-                       (scan-strings-parser line)
-                       (if end0
-                         (python-line-parser 
-                           (subseq line end0) 
-                           opt-lst
-                           (cons (subseq lne 0 end0) rv))
-                         (values `((,line :|id-single-quote|) ,@rv) :|id-single-quote|))))
+                       (values `((,line :|id-single-quote|) ,@rv) :|id-single-quote|)
+                       (multiple-value-bind (start1 end1)
+                         (scan-strings-parser line)
+                         (if end0
+                           (python-line-parser 
+                             (subseq line end0)
+                             opt-lst
+                             (cons `(,(subseq line 0 end0) :|id-single-quote|) rv))
+                           (values `((,line :|id-single-quote|) ,@rv) :|id-single-quote|)))))
                     (t (multiple-value-bind (start2 end2)
-                                (cl-ppcre:scan "^\\W+" line)
-                              (python-line-parser (subseq line start2 end2)
+                                (cl-ppcre:scan "^[^\"'#\\s]+" line)
+                              (print `(:line ,line ,start2, end2))
+                              (python-line-parser (subseq line end2)
                                                   opt-lst
-                                                  (subseq line end2))))))))))))))
+                                                  (cons 
+                                                    (subseq line start2 end2)
+                                                    rv)
+                                                  )))))))))))))
 
 ;----------------------------------------------------------------
 (defun text-line-to-div (line opt-lst)
