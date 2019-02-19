@@ -2,16 +2,18 @@
 (defparameter *lang-set*
   '((:pre-set
       (:name . :pre-set)
-      (:parser . python-line-parser)
+      (:parser . first-space-to-escaped-space)
       (:word-split . python-word-split)
-      (:keyword . first-space-to-escaped-space))
+      (:tag-to-span . python-tag-to-span))
     (:python 
       (:name . :python)
       (:parser . python-line-parser)
       (:word-split . python-word-split)
-      (:tag-to-span . python-tag-to-span)
+      (:tag-to-span . python-tag-to-span))))
+#|
       (:mode-set (:|triple-single-quote| . python-triple-single-quote)
                  (:|triple-double-quote| . python-triple-double-quote)))))
+|#
 
 (defun make-keyword (str)
   (intern (string-upcase str) :keyword))
@@ -40,7 +42,6 @@
                         (cons (list keyword) rv))
                      (take-two-by-two (cddr lst)
                         (let ((spliter (get-function :word-split *lang-set* :first-key :python)))
-                          ;(print `(:xxx ,(python-word-split value)))
                           ;(print `(:xxx ,(funcall #'python-word-split value)))
                           (cons (cons keyword (funcall spliter value)) rv)))))))
              (enclose-list (cur-keyword cur-list remain rv)
@@ -139,7 +140,7 @@
 ;----------------------------------------------------------------
 ; Python 用なんちゃってパーザ
 ; 空白で区切る程度
-; mode は :double-quote :quote :|triple-single-quote| :|triple-double-quote|
+; mode は :|id-double-quote| :|id-single-quote] :|triple-single-quote| :|triple-double-quote|
 
 (defun python-line-parser (line opt-lst &optional rv)
   (if (or (null line) (= (length line) 0)) (values (nreverse rv) nil)
@@ -225,10 +226,14 @@
 (defun get-function (key opt-lst &key (first-key :lang))
   ;(print `(:get-function ,key ,opt-lst))
   (let* ((func (cdr (assoc key (cdr (assoc first-key opt-lst)))))
-         (new-func (if func
+         (new-func (if func func
                      (cdr (assoc key (cdr (assoc :pre-set *lang-set*)))))))
-      (symbol-function new-func)))
+    ;(print `(:get-function ,new-func))
+    (symbol-function new-func)))
 
+;----------------------------------------------------------------
+(defun get-mode-function (key opt-lst)
+  (symbol-function 'python-line-parser))
 
 ;----------------------------------------------------------------
 (defun merge-lang-option (opt-lst)
@@ -245,25 +250,25 @@
             (merge-lang-option
               (parse-decorations-for-lang first-line-option))
             (get-nolang-option)))
-         (parser (get-function :parser decorate-option)))
+         (main-parser (get-function :parser decorate-option)))
 
-    (labels ((read-until-end-of-block (rv mode)
+    (labels ((read-until-end-of-block (parser rv mode)
                 (let ((line (read-line stream)))
                   (if (cl-ppcre:scan "^```[\\s]*" line) (nreverse rv)
                     (multiple-value-bind
-                        (a-rv new-mode) (funcall parser line decorate-option)
-                      (print `(:mode ,mode :new-mode ,new-mode))
-                      (read-until-end-of-block (cons a-rv rv) new-mode))))))
-      ;(print `(:|triple-single-quote| ,first-line-option ,decorate-option))
+                        (a-rv new-mode) (funcall parser line decorate-option nil )
+                      ;(print `(:mode ,mode :new-mode ,new-mode))
+                      (let ((new-parser (if mode (get-mode-function mode decorate-option) main-parser)))
+                        (read-until-end-of-block new-parser (cons a-rv rv) new-mode)))))))
+      ;(print `(:|triple-single-quote| ,first-line-option ,main-parser))
       (print  "decorate-option start")
-      (map nil #'print (read-until-end-of-block nil nil))
+      (map nil #'print (read-until-end-of-block main-parser nil nil))
       (print  "decorate-option END"))))
 
 
 ;----------------------------------------------------------------
 (defun interp-a-markdown (stream)
   (let ((line (read-line stream)))
-    ;(print `(:line ,line))
     (multiple-value-bind (match regs)
       (cl-ppcre:scan-to-strings "^([^0-9a-zA-Z]*)[	 ]*(.*)" line)
 
