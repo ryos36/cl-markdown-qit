@@ -81,6 +81,90 @@
         line))))
 
 ;----------------------------------------------------------------
+(defun word-to-tagged-list (word opt-lst)
+  (print `(:word-to-tagged-list ,word))
+  word)
+
+;----------------------------------------------------------------
+; Python 用なんちゃってパーザ
+; 空白で区切る程度
+; mode は :double-quote :quote :|triple-single-quote| :|triple-quote|
+
+(defun python-line-parser (line opt-lst &optional rv)
+  (if (or (null line) (= (length line) 0)) (values (nreverse rv) nil)
+    (multiple-value-bind (sp-start-pos sp-end-pos)
+        (cl-ppcre:scan "^\\s+" line)
+
+      (if sp-start-pos
+        (python-line-parser (subseq line sp-end-pos) opt-lst
+              (cons (tab-to-space (subseq line sp-start-pos sp-end-pos) opt-lst) rv))
+
+        (multiple-value-bind (pnum-start-pos pnum-end-pos)
+            (cl-ppcre:scan "^\\d+" line)
+
+          ;(print `(:plp ,line ,rv))
+          (if pnum-start-pos 
+            (python-line-parser (subseq line pnum-end-pos) opt-lst
+                  (cons (subseq line pnum-start-pos pnum-end-pos) rv))
+
+            (multiple-value-bind (w-start-pos w-end-pos)
+                (cl-ppcre:scan "^\\w+" line)
+          
+                ;(print `(:plp2 ,line ,rv))
+              (if w-start-pos 
+                (python-line-parser (subseq line w-end-pos) opt-lst
+                    (cons (word-to-tagged-list (subseq line w-start-pos w-end-pos) opt-lst) rv))
+
+                (let ((line-len (length line))
+                      (first-char (char line 0)))
+
+                  (cond 
+                    ((and (eq first-char #\")
+                              (>= line-len 3)
+                              (eq (char line 1) #\")
+                              (eq (char line 2) #\"))
+
+                     (values `((,line :|triple-quote|) ,@rv) :|triple-quote|))
+
+                    ((and (eq first-char #\')
+                              (>= line-len 3)
+                              (eq (char line 1) #\')
+                              (eq (char line 2) #\'))
+                         (values `((,line :|triple-single-quote|) ,@rv) :|triple-single-quote|))
+
+                    ((eq first-char #\#)
+                     `((,line :comment) ,@rv))
+
+                    ((eq first-char #\")
+                     (if (= line-len 1)
+                       (values `((,line :|id-double-quote|) ,@rv) :|id-double-quote|))
+                     (multiple-value-bind (start0 end0)
+                       (scan-strings-parser line)
+                       (if end0
+                         (python-line-parser 
+                           (subseq line end0) 
+                           opt-lst
+                           (cons (subseq lne 0 end0) rv))
+                         (values `((,line :|id-double-quote|) ,@rv) :|id-double-quote|))))
+
+                    ((eq first-char #\')
+                     (if (= line-len 1)
+                       (values `((,line :|id-single-quote|) ,@rv) :|id-single-quote|))
+                     (multiple-value-bind (start1 end1)
+                       (scan-strings-parser line)
+                       (if end0
+                         (python-line-parser 
+                           (subseq line end0) 
+                           opt-lst
+                           (cons (subseq lne 0 end0) rv))
+                         (values `((,line :|id-single-quote|) ,@rv) :|id-single-quote|))))
+                    (t (multiple-value-bind (start2 end2)
+                                (cl-ppcre:scan "^\\W+" line)
+                              (python-line-parser (subseq line start2 end2)
+                                                  opt-lst
+                                                  (subseq line end2))))))))))))))
+
+;----------------------------------------------------------------
 (defun text-line-to-div (line opt-lst)
   (print `(:text-line-to-div ,line))
   (first-space-to-escaped-space (first-tab-to-space line opt-lst)))
@@ -105,7 +189,7 @@
                 (let ((line (read-line stream)))
                   (if (cl-ppcre:scan "^```[\\s]*" line) (nreverse rv)
                     (read-until-end-of-block (cons line rv))))))
-      (print `(:|'''| ,first-line-option ,decorate-option))
+      (print `(:|triple-single-quote| ,first-line-option ,decorate-option))
       (print  "decorate-option start")
       (map nil #'print (read-until-end-of-block nil))
       (print  "decorate-option END"))))
