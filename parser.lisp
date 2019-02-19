@@ -4,12 +4,14 @@
       (:name . :pre-set)
       (:parser . python-line-parser)
       (:word-split . python-word-split)
-      (:keyword . python-keyword))
+      (:keyword . first-space-to-escaped-space))
     (:python 
       (:name . :python)
       (:parser . python-line-parser)
       (:word-split . python-word-split)
-      (:keyword . python-keyword))))
+      (:tag-to-span . python-tag-to-span)
+      (:mode-set (:|triple-single-quote| . python-triple-single-quote)
+                 (:|triple-double-quote| . python-triple-double-quote)))))
 
 (defun make-keyword (str)
   (intern (string-upcase str) :keyword))
@@ -37,7 +39,7 @@
                      (take-two-by-two (cdr lst)
                         (cons (list keyword) rv))
                      (take-two-by-two (cddr lst)
-                        (let ((spliter (symbol-function (cdr (assoc :word-split (cdr (assoc lang *lang-set*)))))))
+                        (let ((spliter (get-function :word-split *lang-set* :first-key :python)))
                           ;(print `(:xxx ,(python-word-split value)))
                           ;(print `(:xxx ,(funcall #'python-word-split value)))
                           (cons (cons keyword (funcall spliter value)) rv)))))))
@@ -91,7 +93,7 @@
     (cl-ppcre:regex-replace-all " " line "&#x20;"))
 
 ;----------------------------------------------------------------
-(defun first-space-to-escaped-space (line)
+(defun first-space-to-escaped-space (line opt-lst mode)
   (multiple-value-bind (start-pos end-pos) (cl-ppcre:scan " *" line)
     (let ((first (subseq line start-pos end-pos))
           (remain (subseq line end-pos)))
@@ -123,13 +125,21 @@
   (cl-ppcre:split "," line))
 
 ;----------------------------------------------------------------
-(defun python-keyword (line)
+(defun python-tag-to-span (line)
+  (error "Not Implement Yet"))
+
+;----------------------------------------------------------------
+(defun python-triple-single-quote (line)
+  (error "Not Implement Yet"))
+
+;----------------------------------------------------------------
+(defun python-triple-doub (line)
   (error "Not Implement Yet"))
 
 ;----------------------------------------------------------------
 ; Python 用なんちゃってパーザ
 ; 空白で区切る程度
-; mode は :double-quote :quote :|triple-single-quote| :|triple-quote|
+; mode は :double-quote :quote :|triple-single-quote| :|triple-double-quote|
 
 (defun python-line-parser (line opt-lst &optional rv)
   (if (or (null line) (= (length line) 0)) (values (nreverse rv) nil)
@@ -166,7 +176,7 @@
                               (eq (char line 1) #\")
                               (eq (char line 2) #\"))
 
-                     (values `((,line . :|triple-quote|) ,@rv) :|triple-quote|))
+                     (values `((,line . :|triple-double-quote|) ,@rv) :|triple-double-quote|))
 
                     ((and (eq first-char #\')
                               (>= line-len 3)
@@ -212,23 +222,13 @@
                                                   )))))))))))))
 
 ;----------------------------------------------------------------
-(defun get-function (key opt-lst)
+(defun get-function (key opt-lst &key (first-key :lang))
   ;(print `(:get-function ,key ,opt-lst))
-  (let* ((func (cdr (assoc key (cdr (assoc :lang opt-lst)))))
+  (let* ((func (cdr (assoc key (cdr (assoc first-key opt-lst)))))
          (new-func (if func
                      (cdr (assoc key (cdr (assoc :pre-set *lang-set*)))))))
       (symbol-function new-func)))
 
-;----------------------------------------------------------------
-(defun code-line-to-div (line opt-lst)
-  ;(print `(:code-line-to-div ,line))
-  (let ((parser (get-function :parser opt-lst)))
-    ;(print `(:code-line-to-div ,line :parser ,parser ,opt-lst))
-    ;(print `(:code-line-to-div ,parser ,(eq parser #'python-line-parser)))
-    (if parser
-      ;(funcall (car `(,#'python-line-parser)) line opt-lst)
-      (funcall parser line opt-lst)
-      (first-space-to-escaped-space (first-tab-to-space line opt-lst)))))
 
 ;----------------------------------------------------------------
 (defun merge-lang-option (opt-lst)
@@ -240,21 +240,25 @@
 
 ;----------------------------------------------------------------
 (defun |mw/```| (first-line-option stream) 
-  (let ((decorate-option 
+  (let* ((decorate-option 
           (if (> (length first-line-option) 0)
             (merge-lang-option
               (parse-decorations-for-lang first-line-option))
-            (get-nolang-option))))
+            (get-nolang-option)))
+         (parser (get-function :parser decorate-option)))
 
-    (labels ((read-until-end-of-block (rv)
+    (labels ((read-until-end-of-block (rv mode)
                 (let ((line (read-line stream)))
                   (if (cl-ppcre:scan "^```[\\s]*" line) (nreverse rv)
-                    (read-until-end-of-block (cons 
-                                               (code-line-to-div line decorate-option) rv))))))
+                    (multiple-value-bind
+                        (a-rv new-mode) (funcall parser line decorate-option)
+                      (print `(:mode ,mode :new-mode ,new-mode))
+                      (read-until-end-of-block (cons a-rv rv) new-mode))))))
       ;(print `(:|triple-single-quote| ,first-line-option ,decorate-option))
       (print  "decorate-option start")
-      (map nil #'print (read-until-end-of-block nil))
+      (map nil #'print (read-until-end-of-block nil nil))
       (print  "decorate-option END"))))
+
 
 ;----------------------------------------------------------------
 (defun interp-a-markdown (stream)
