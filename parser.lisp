@@ -1,15 +1,15 @@
 (defparameter *tabstop* 4)
 (defparameter *lang-set*
-  `((:pre-set
+  '((:pre-set
       (:name . :pre-set)
-      (:parser . ,#'python-line-parser)
-      (:word-split . ,#'python-word-split)
-      (:keyword . ,#'python-keyword))
+      (:parser . python-line-parser)
+      (:word-split . python-word-split)
+      (:keyword . python-keyword))
     (:python 
       (:name . :python)
-      (:parser . ,#'python-line-parser)
-      (:word-split . ,#'python-word-split)
-      (:keyword . ,#'python-keyword))))
+      (:parser . python-line-parser)
+      (:word-split . python-word-split)
+      (:keyword . python-keyword))))
 
 (defun make-keyword (str)
   (intern (string-upcase str) :keyword))
@@ -37,10 +37,9 @@
                      (take-two-by-two (cdr lst)
                         (cons (list keyword) rv))
                      (take-two-by-two (cddr lst)
-                        (let ((spliter (cdr (assoc :word-split (cdr (assoc lang *lang-set*))))))
-                          (setf spliter #'python-word-split)
-                          (print `(:xxx ,(python-word-split value)))
-                          (print `(:xxx ,(funcall #'python-word-split value)))
+                        (let ((spliter (symbol-function (cdr (assoc :word-split (cdr (assoc lang *lang-set*)))))))
+                          ;(print `(:xxx ,(python-word-split value)))
+                          ;(print `(:xxx ,(funcall #'python-word-split value)))
                           (cons (cons keyword (funcall spliter value)) rv)))))))
              (enclose-list (cur-keyword cur-list remain rv)
                 (if (null remain) (nreverse (cons (cons cur-keyword cur-list) rv))
@@ -56,11 +55,13 @@
                       (remain (cdr lst)))
                   (enclose-list (car first-item) (cdr first-item) remain nil))))
 
+      #+:debug+
       (print `(:two ,
           (enclose-list0 (sort
                     (take-two-by-two (cdr optlst) nil)
                     #'(lambda (a b) (string< (string (car a)) (string (car b))))))))
              
+      #+:debug+
       (print `(:lang :find ,lang ,(assoc (intern (string-upcase lang) :keyword) *lang-set*) ,*lang-set* :filename ,fname))
       `((:lang . ,(cdr (assoc lang *lang-set*))) (:filename . ,fname)
              ,@(enclose-list0 (sort
@@ -213,9 +214,10 @@
 ;----------------------------------------------------------------
 (defun get-function (key opt-lst)
   ;(print `(:get-function ,key ,opt-lst))
-  (let ((func (cdr (assoc key (cdr (assoc :lang opt-lst))))))
-    (if func func
-      (cdr (assoc key (cdr (assoc :pre-set *lang-set*)))))))
+  (let* ((func (cdr (assoc key (cdr (assoc :lang opt-lst)))))
+         (new-func (if func
+                     (cdr (assoc key (cdr (assoc :pre-set *lang-set*)))))))
+      (symbol-function new-func)))
 
 ;----------------------------------------------------------------
 (defun code-line-to-div (line opt-lst)
@@ -249,7 +251,7 @@
                   (if (cl-ppcre:scan "^```[\\s]*" line) (nreverse rv)
                     (read-until-end-of-block (cons 
                                                (code-line-to-div line decorate-option) rv))))))
-      (print `(:|triple-single-quote| ,first-line-option ,decorate-option))
+      ;(print `(:|triple-single-quote| ,first-line-option ,decorate-option))
       (print  "decorate-option start")
       (map nil #'print (read-until-end-of-block nil))
       (print  "decorate-option END"))))
@@ -257,20 +259,21 @@
 ;----------------------------------------------------------------
 (defun interp-a-markdown (stream)
   (let ((line (read-line stream)))
-    (print `(:line ,line))
+    ;(print `(:line ,line))
     (multiple-value-bind (match regs)
       (cl-ppcre:scan-to-strings "^([^0-9a-zA-Z]*)[	 ]*(.*)" line)
 
       (let* ((flstv
                (map 'vector #'(lambda (x) (string-trim '(#\Space #\Tab #\Newline) x)) regs))
-             (jgeil (print `(:jgeil ,flstv ,regs)))
+             ;(jgeil (print `(:jgeil ,flstv ,regs)))
              (fname (intern (string-concat "mw/" (elt flstv 0))))
              (an-arg (elt flstv 1))
              (flst (list fname an-arg stream)))
 
-        (print `(:fname ,fname))
+        ;(print `(:fname ,fname))
         (if (fboundp fname)
           (progn
+            #+:debug+
             (print `(:flst ,flst))
             (eval flst))
           (cadr flst))))))
