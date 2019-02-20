@@ -1,16 +1,19 @@
+(defparameter *cached-style-list* nil)
+(defparameter *result* nil)
 (defparameter *tabstop* 4)
 (defparameter *lang-set*
   '((:pre-set
       (:name . :pre-set)
       (:parser . first-space-to-escaped-space)
-      (:word-split . python-word-split)
-      (:tag-to-span . python-tag-to-span))
+      (:tag-to-span . python-tag-to-span) ; deprecated
+      (:word-split . python-word-split))
 
     (:python 
       (:name . :python)
       (:parser . python-line-parser)
       (:word-split . python-word-split)
-      (:tag-to-span . python-tag-to-span)
+      (:tag-to-span . python-tag-to-span) ; deprecated
+      (:style (:keyword . `(:span :class "python-keyword" ,arg)))
       (:mode-set (:|triple-single-quote| . python-triple-single-quote)
                  (:|triple-double-quote| . python-triple-double-quote)
                  (:|id-double-quote| . python-double-quote)))))
@@ -124,10 +127,6 @@
 ;----------------------------------------------------------------
 (defun python-word-split (line)
   (cl-ppcre:split "," line))
-
-;----------------------------------------------------------------
-(defun python-tag-to-span (line opt-lst)
-  (format t "<<<~a>>>" line))
 
 ;----------------------------------------------------------------
 (defun python-triple-single-quote (line opt-lst &optional rv)
@@ -301,33 +300,92 @@
                       (let ((new-parser (if new-mode (get-mode-function new-mode decorate-option) main-parser)))
 
                         (read-until-end-of-block new-parser (cons a-rv rv) new-mode)))))))
-      ;(print `(:|triple-single-quote| ,first-line-option ,main-parser))
-      #+:debug
-      (print  "decorate-option start")
-      (map nil #'(lambda (x) (funcall tag-to-span x decorate-option)) (read-until-end-of-block main-parser nil nil))
-      ;(let ((result (mapcar tag-to-span (read-until-end-of-block main-parser nil nil) decorate-option)))
-      ;(print result)
-      #+:debug
-      (print  "decorate-option END"))))
+      `((:option . ,decorate-option)
+        (:block .  ,(read-until-end-of-block main-parser nil nil))))))
 
+;----------------------------------------------------------------
+(defun get-tag-item (key-list opt-lst)
+  (if (null key-list) opt-lst
+    (get-tag-item (cdr key-list)
+                  (cdr (assoc (car key-list) opt-lst)))))
+
+;----------------------------------------------------------------
+(defun escape-string (word)
+  (if (cl-ppcre:scan "\\s+" word) (space-to-escaped-space word)
+    (cl-who:escape-string word)))
+
+;----------------------------------------------------------------
+; `(:span :class "python-keyword" ,arg)))
+; のような記述を ,arg などの , で始まるものをしらべて
+; 引数にする lambda を生成する。
+; 生成された lambda は funcall あるいは apply すればよい 
+
+(defmacro make-style-lambda (style-desc) 
+  `#'(lambda ,
+       (remove-duplicates 
+         (remove nil 
+          (mapcar 
+            #'(lambda (i) 
+                (if (and (listp i) (eq (car i) 'SYSTEM::UNQUOTE)) (cadr i)))
+
+            (cadr style-desc))) :from-end t) ,style-desc))
+
+;
+;----------------------------------------------------------------
+;ryos
+(defun expand-tagged-line-to-who (line-lst opt-lst)
+  ;(print `(:line-lst ,line-lst))
+  (let ((style-list (get-tag-item '(:lang :style) opt-lst)))
+    ;(print `(:style ,style-list, opt-lst))
+    `(:div ,@(mapcar #'(lambda (word-pair)
+                (let* ((flag (listp word-pair))
+                       (word (if flag (car word-pair) word-pair))
+                       (tag (if flag (cdr word-pair)))
+                       (style (cdr (assoc tag style-list)))
+                       (style-func (if style (eval `(make-style-lambda ,style))))
+                       (format-str (if style style "~a")))
+                  ;(print `(:word ,word :style ,style))
+                  (if style
+                    (progn
+                      (push `(,tag . ,style-func) *cached-style-list*)
+                      ;(print `(:style-func ,style-func))
+                      (push (funcall style-func word) *result*)
+                      (funcall style-func word))
+                    (escape-string word))))
+            line-lst))))
+
+;----------------------------------------------------------------
+(defun expand-tagged-block-to-who (lst)
+  (let ((opt-lst (cdr (assoc :option lst)))
+        (blk (cdr (assoc :block lst))))
+    `(:div ,@(mapcar #'(lambda (word) (expand-tagged-line-to-who word opt-lst)) blk))))
 
 ;----------------------------------------------------------------
 (defun interp-a-markdown (stream)
-  (let ((line (read-line stream)))
-    (multiple-value-bind (match regs)
-      (cl-ppcre:scan-to-strings "^([^0-9a-zA-Z]*)[	 ]*(.*)" line)
+  (labels ((interp-a-markdown-inner (rv)
+            (let ((tlist (markdown-line-to-tagged-list stream)))
+              (if (eq tlist :eof) (nreverse rv)
+                (interp-a-markdown-inner 
+                  (cons tlist rv))))))
+    (mapcar #'expand-tagged-block-to-who (interp-a-markdown-inner nil))))
 
-      (let* ((flstv
-               (map 'vector #'(lambda (x) (string-trim '(#\Space #\Tab #\Newline) x)) regs))
-             ;(jgeil (print `(:jgeil ,flstv ,regs)))
-             (fname (intern (string-concat "mw/" (elt flstv 0))))
-             (an-arg (elt flstv 1))
-             (flst (list fname an-arg stream)))
+;----------------------------------------------------------------
+(defun markdown-line-to-tagged-list (stream)
+  (let ((line (read-line stream nil :eof)))
+    (if (eq line :eof) :eof
+      (multiple-value-bind (match regs)
+        (cl-ppcre:scan-to-strings "^([^0-9a-zA-Z]*)[	 ]*(.*)" line)
 
-        ;(print `(:fname ,fname))
-        (if (fboundp fname)
-          (progn
-            #+:debug+
-            (print `(:flst ,flst))
-            (eval flst))
-          (cadr flst))))))
+        (let* ((flstv
+                 (map 'vector #'(lambda (x) (string-trim '(#\Space #\Tab #\Newline) x)) regs))
+               (fname (intern (string-concat "mw/" (elt flstv 0))))
+               (an-arg (elt flstv 1))
+               (flst (list fname an-arg stream)))
+
+          ;(print `(:fname ,fname))
+          (if (fboundp fname)
+            (progn
+              #+:debug+
+              (print `(:flst ,flst))
+              (eval flst))
+            (cadr flst)))))))

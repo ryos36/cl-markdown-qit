@@ -2,8 +2,8 @@
 
 (in-package :cl-user)
 
-(defpackage :cl-markdown-who
+(defpackage :cl-markdown-qit
   (:use :cl :cl-who :cl-ppcre)
-  (:nicknames :markdown-who)
+  (:nicknames :markdown-qit :qiita)
   (:export
     :test))
