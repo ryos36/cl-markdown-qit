@@ -1,3 +1,5 @@
+(in-package :cl-markdown-qit)
+
 (defparameter *cached-style-list* nil)
 (defparameter *result* nil)
 (defparameter *tabstop* 4)
@@ -94,7 +96,7 @@
 
 ;----------------------------------------------------------------
 (defun space-to-escaped-space (line)
-    (cl-ppcre:regex-replace-all " " line "&#x20;"))
+    (cl-ppcre:regex-replace-all " " line "&nbsp;"))
 
 ;----------------------------------------------------------------
 (defun first-space-to-escaped-space (line opt-lst mode)
@@ -240,11 +242,11 @@
                        (values `((,line . :|id-single-quote|) ,@rv) :|id-single-quote|)
                        (multiple-value-bind (start1 end1)
                          (scan-strings-parser line)
-                         (if end0
+                         (if end1
                            (python-line-parser 
-                             (subseq line end0)
+                             (subseq line end1)
                              opt-lst
-                             (cons `(,(subseq line 0 end0) . :|id-single-quote|) rv))
+                             (cons `(,(subseq line 0 end1) . :|id-single-quote|) rv))
                            (values (nreverse `((,line . :|id-single-quote|) ,@rv))
                                    (if (python-continue-line-p line) :|id-single-quote|))))))
                     (t (multiple-value-bind (start2 end2)
@@ -278,7 +280,7 @@
   opt-lst)
 
 ;----------------------------------------------------------------
-(defun get-nolang-option (&options opt-lst)
+(defun get-nolang-option (&optional opt-lst)
   opt-lst)
 
 ;----------------------------------------------------------------
@@ -288,8 +290,7 @@
             (merge-lang-option
               (parse-decorations-for-lang first-line-option))
             (get-nolang-option)))
-         (main-parser (get-function :parser decorate-option))
-         (tag-to-span (get-function :tag-to-span decorate-option)))
+         (main-parser (get-function :parser decorate-option)))
 
     (labels ((read-until-end-of-block (parser rv mode)
                 (let ((line (read-line stream)))
@@ -310,7 +311,7 @@
                   (cdr (assoc (car key-list) opt-lst)))))
 
 ;----------------------------------------------------------------
-(defun escape-string (word)
+(defun my-escape-string (word)
   (if (cl-ppcre:scan "\\s+" word) (space-to-escaped-space word)
     (cl-who:escape-string word)))
 

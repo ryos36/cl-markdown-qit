@@ -4,6 +4,8 @@
 
 (defpackage :cl-markdown-qit
   (:use :cl :cl-who :cl-ppcre)
-  (:nicknames :markdown-qit :qiita)
+  (:nicknames :markdown-qit)
   (:export
-    :test))
+    :interp-a-markdown
+    :*lang-set*
+    ))
