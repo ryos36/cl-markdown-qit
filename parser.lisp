@@ -352,7 +352,7 @@
                       ;(print `(:style-func ,style-func))
                       (push (funcall style-func word) *result*)
                       (funcall style-func word))
-                    (escape-string word))))
+                    (my-escape-string word))))
             line-lst))))
 
 ;----------------------------------------------------------------
@@ -379,7 +379,7 @@
 
         (let* ((flstv
                  (map 'vector #'(lambda (x) (string-trim '(#\Space #\Tab #\Newline) x)) regs))
-               (fname (intern (string-concat "mw/" (elt flstv 0))))
+               (fname (intern (concatenate 'string "mw/" (elt flstv 0)) 'cl-markdown-qit))
                (an-arg (elt flstv 1))
                (flst (list fname an-arg stream)))
 
