@@ -1,11 +1,11 @@
 ;;; Sinby Corp. 2019
 
-(defpackage :cl-markdown-who
+(defpackage :cl-markdown-qit
   (:use :cl :cl-who :cl-ppcre))
 
-(in-package :cl-markdown-who)
+(in-package :cl-markdown-qit)
 
-(asdf:defsystem :cl-markdown-who
+(asdf:defsystem :cl-markdown-qit
   :version "0.1"
   :depends-on (:cl-who :cl-ppcre)
   :serial t
