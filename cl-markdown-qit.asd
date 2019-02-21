@@ -1,7 +1,7 @@
 ;;; Sinby Corp. 2019
 
 (defpackage :cl-markdown-qit
-  (:use :cl :cl-who :cl-ppcre))
+  (:use :cl))
 
 (in-package :cl-markdown-qit)
 

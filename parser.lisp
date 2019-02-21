@@ -311,7 +311,7 @@
                   (cdr (assoc (car key-list) opt-lst)))))
 
 ;----------------------------------------------------------------
-(defun my-escape-string (word)
+(defun escape-string (word)
   (if (cl-ppcre:scan "\\s+" word) (space-to-escaped-space word)
     (cl-who:escape-string word)))
 
@@ -352,7 +352,7 @@
                       ;(print `(:style-func ,style-func))
                       (push (funcall style-func word) *result*)
                       (funcall style-func word))
-                    (my-escape-string word))))
+                    (escape-string word))))
             line-lst))))
 
 ;----------------------------------------------------------------
@@ -376,17 +376,25 @@
     (if (eq line :eof) :eof
       (multiple-value-bind (match regs)
         (cl-ppcre:scan-to-strings "^([^0-9a-zA-Z]*)[	 ]*(.*)" line)
+        (print `(:strings ,match ,regs))
 
         (let* ((flstv
                  (map 'vector #'(lambda (x) (string-trim '(#\Space #\Tab #\Newline) x)) regs))
-               (fname (intern (concatenate 'string "mw/" (elt flstv 0)) 'cl-markdown-qit))
+               (x (print `(:flstv ,flstv)))
+               (first-word (elt flstv 0))
+               (fname (if (not (alphanumericp (char first-word 0)))
+                 (intern (concatenate 'string "mw/" first-word) 'cl-markdown-qit)))
                (an-arg (elt flstv 1))
                (flst (list fname an-arg stream)))
 
-          ;(print `(:fname ,fname))
           (if (fboundp fname)
             (progn
               #+:debug+
               (print `(:flst ,flst))
               (eval flst))
-            (cadr flst)))))))
+            (list line)))))))
+
+;----------------------------------------------------------------
+(defun markdown (file-name &optional opt)
+  `(:section ,@opt ,@(with-open-file (in file-name)
+                         (interp-a-markdown in))))
