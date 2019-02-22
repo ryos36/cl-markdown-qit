@@ -23,9 +23,12 @@
 (defun make-keyword (str)
   (intern (string-upcase str) :keyword))
 
-(defun |mw/*| (x stream) `(:h1 ,x))
-(defun |mw/**| (x stream) `(:h2 ,x))
-(defun |mw/***| (x stream) `(:h3 ,x))
+
+(defun |mw/#| (x stream) `((:block ((,x . :keyword)))
+                               ,'(:option . ((:lang (:style (:keyword . `(:h1 ,arg))))))))
+(defun |mw/##| (x stream) `(:h2 ,x))
+(defun |mw/###| (x stream) `(:h3 ,x))
+
 
 (defun parse-decorations-for-lang (opt)
   ;(print `(:parse-decorations-for-lang ,opt))
@@ -322,6 +325,7 @@
 ; 生成された lambda は funcall あるいは apply すればよい 
 
 (defmacro make-style-lambda (style-desc) 
+  (print `(:make-style-lambda ,style-desc))
   `#'(lambda ,
        (remove-duplicates 
          (remove nil 
@@ -335,13 +339,14 @@
 ;----------------------------------------------------------------
 ;ryos
 (defun expand-tagged-line-to-who (line-lst opt-lst)
-  ;(print `(:line-lst ,line-lst))
+  (print `(:line-lst ,line-lst))
   (let ((style-list (get-tag-item '(:lang :style) opt-lst)))
-    ;(print `(:style ,style-list, opt-lst))
+    (print `(:style ,style-list :opt-lst ,opt-lst))
     `(:div ,@(mapcar #'(lambda (word-pair)
                 (let* ((flag (listp word-pair))
                        (word (if flag (car word-pair) word-pair))
                        (tag (if flag (cdr word-pair)))
+                       (x `(print (:word ,word :tag ,tag)))
                        (style (cdr (assoc tag style-list)))
                        (style-func (if style (eval `(make-style-lambda ,style))))
                        (format-str (if style style "~a")))
@@ -357,6 +362,7 @@
 
 ;----------------------------------------------------------------
 (defun expand-tagged-block-to-who (lst)
+  (print `(:lst ,lst))
   (let ((opt-lst (cdr (assoc :option lst)))
         (blk (cdr (assoc :block lst))))
     `(:div ,@(mapcar #'(lambda (word) (expand-tagged-line-to-who word opt-lst)) blk))))
@@ -367,7 +373,7 @@
             (let ((tlist (markdown-line-to-tagged-list stream)))
               (if (eq tlist :eof) (nreverse rv)
                 (interp-a-markdown-inner 
-                  (cons tlist rv))))))
+                    (cons tlist rv))))))
     (mapcar #'expand-tagged-block-to-who (interp-a-markdown-inner nil))))
 
 ;----------------------------------------------------------------
