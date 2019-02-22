@@ -26,6 +26,7 @@
 
 (defun |mw/#| (x stream) `((:block ((,x . :keyword)))
                                ,'(:option . ((:lang (:style (:keyword . `(:h1 ,arg))))))))
+(defun |mw/#| (x stream) `((:block :translated :h1 ,x)))
 (defun |mw/##| (x stream) `(:h2 ,x))
 (defun |mw/###| (x stream) `(:h3 ,x))
 
@@ -365,7 +366,9 @@
   (print `(:lst ,lst))
   (let ((opt-lst (cdr (assoc :option lst)))
         (blk (cdr (assoc :block lst))))
-    `(:div ,@(mapcar #'(lambda (word) (expand-tagged-line-to-who word opt-lst)) blk))))
+    (let ((translatedp (eq (car blk) :translated)))
+      (if translatedp (cdr blk)
+        `(:div ,@(mapcar #'(lambda (word) (expand-tagged-line-to-who word opt-lst)) blk))))))
 
 ;----------------------------------------------------------------
 (defun interp-a-markdown (stream)
