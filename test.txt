@@ -1,4 +1,6 @@
-```python:test.py :usep :keyword def,for
+# どうでしょう？
+プログラムはこうなるよ
+```python:test.py
 '''
 なんだろう？
 '''

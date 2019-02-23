@@ -30,3 +30,8 @@
                                        "good" " " "by"(nl)
                                        ))
              (new-markdown-stream in))))
+
+(print :==============================================================)
+(print `(:new-markdown ,(new-markdown "sect.txt" :tag-option '(:a))))
+(print :==============================================================)
+(print `(:new-markdown ,(new-markdown "test.txt" :tag-option '(:b))))

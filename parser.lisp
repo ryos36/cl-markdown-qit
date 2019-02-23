@@ -317,7 +317,7 @@
 ;----------------------------------------------------------------
 (defun escape-string (word)
   (if (cl-ppcre:scan "\\s+" word) (space-to-escaped-space word)
-    (cl-who:escape-string word)))
+    (cl-who:escape-string-minimal-plus-quotes word)))
 
 ;----------------------------------------------------------------
 ; `(:span :class "python-keyword" ,arg)))
@@ -340,29 +340,31 @@
 ;----------------------------------------------------------------
 ;ryos
 (defun expand-tagged-line-to-who (line-lst opt-lst)
-  (print `(:line-lst ,line-lst))
   (let ((style-list (get-tag-item '(:lang :style) opt-lst)))
-    (print `(:style ,style-list :opt-lst ,opt-lst))
+    (print `(:line-lst ,line-lst :style ,style-list :opt-lst ,opt-lst))
     (mapcar #'(lambda (word-pair)
                 (let* ((flag (listp word-pair))
                        (word (if flag (car word-pair) word-pair))
                        (tag (if flag (cdr word-pair)))
-                       (x `(print (:word ,word :tag ,tag)))
+                       (x (print `(:word ,word :tag ,tag)))
                        (style (cdr (assoc tag style-list)))
                        (style-func (if style (eval `(make-style-lambda ,style))))
                        (format-str (if style style "~a")))
-                  ;(print `(:word ,word :style ,style))
-                  (if style
-                    (progn
-                      (push `(,tag . ,style-func) *cached-style-list*)
-                      ;(print `(:style-func ,style-func))
-                      (push (funcall style-func word) *result*)
-                      (funcall style-func word))
-                    (escape-string word))))
+                  (print `(:word ,word :style ,style))
+                  (if (eq :translated word)
+                    (cdr word-pair)
+                    (if style
+                      (progn
+                        (push `(,tag . ,style-func) *cached-style-list*)
+                        ;(print `(:style-func ,style-func))
+                        (push (funcall style-func word) *result*)
+                        (funcall style-func word))
+                      (escape-string word)))))
             line-lst)))
 
 ;----------------------------------------------------------------
 (defun expand-tagged-block-to-who (lst)
+  (print `(:etbw ,lst))
   (let ((opt-lst (cdr (assoc :option lst)))
         (blk (cdr (assoc :block lst))))
     (let ((translatedp (eq (car blk) :translated)))
@@ -416,14 +418,12 @@
     (if current-line-in-opt-lst (setf (cdr current-line-in-opt-lst) nil))
     line))
 
-(defun push-into-option-list (key value opt-lst)
-  (push `(,key . ,value) opt-lst))
+;(defun push-into-option-list (key value opt-lst)
+;  (push `(,key . ,value) opt-lst))
 
 (defun push-back-line (line opt-lst)
   (let ((current-line-in-opt-lst (assoc :current-line opt-lst)))
-    (if current-line-in-opt-lst
-      (setf (cdr current-line-in-opt-lst) line)
-      (push-into-option-list :current-line line opt-lst))))
+    (setf (cdr current-line-in-opt-lst) line)))
 
 ;----------------------------------------------------------------
 (defun preset-line-parser-reverse (line stream opt-lst)
@@ -438,9 +438,10 @@
 (defun preset-block-parser (stream opt-lst)
   (labels ((read-until-end-of-block (rv)
              (let ((line (nget-current-line stream opt-lst)))
-               (print `(:preset-block-parser :line ,line ,opt-lst))
+               ;(print `(:preset-block-parser :line ,line ,opt-lst))
                (if (or (eq line :eof) (= (length line) 0)) (nreverse rv)
                  (let ((new-parser-p (block-parser-detector line)))
+                   (print `(:new-parser-p ,(not (null new-parser-p)) :line ,line))
                    (if new-parser-p (nreverse rv)
                      (read-until-end-of-block 
                        (nconc (preset-line-parser-reverse line stream opt-lst) rv))))))))
@@ -449,11 +450,20 @@
         (:block ,blk)))))
 
 ;----------------------------------------------------------------
+(defun python-parser (stream opt-lst)
+  (print `(:python-parser ,opt-lst))
+  `(:translated :div ,(nget-current-line stream opt-lst)))
+
+;----------------------------------------------------------------
 (defun lang-to-parser (lang)
-  (case (lang)
+  #'python-parser)
+  #|
+  (case lang
     (:python . #'python-parser)
     (:common-lisp . #'common-lisp-parser)
     (otherwise . #'python-parser)))
+)
+|#
 
 ;----------------------------------------------------------------
 ; ``` で始まる parser
@@ -465,54 +475,64 @@
             (let ((start-pos (length "```")))
               (multiple-value-bind (hit-str argv)
                   (cl-ppcre:scan-to-strings "^([A-Za-z][^:]*):?(\\S*)" line :start start-pos)
+                (print `(:argv ,argv :lang ,(make-keyword (elt argv 0))))
                 (if argv
                   (let ((lang (make-keyword (elt argv 0)))
                         (file-name nil))
-                    (push-into-option-list :lang lang opt-lst)
+                    (push `(:lang ,lang) opt-lst)
                     (when (= (length argv) 2)
                       (setf file-name (elt argv 1))
-                      (push-into-option-list :file-name file-name opt-lst))
+                      (push `(:file-name ,file-name) opt-lst))
                     (values lang file-name))))))
 
-           (nread-until-end-of-block (parser rv)
+           (nread-until-end-of-block (line-parser rv)
              (let ((line (nget-current-line stream opt-lst)))
-               (if (cl-ppcre:scan "^```[\\s]*" line) (nreverse rv)
-                 (let ((one-rv (funcall parser stream opt-lst)))
-                   (read-until-end-of-block parser (cons one-rv rv))))))
+               (print `(:nread-until-end-of-block ,line))
+               (if (eq line :eof) (nreverse rv)
+                 (if (cl-ppcre:scan "^```[\\s]*" line) (nreverse rv)
+                   (let ((one-rv (funcall line-parser stream opt-lst)))
+                     (print `(:funcall ,line-parser ,one-rv ,line ))
+                     (nread-until-end-of-block line-parser (cons one-rv rv)))))))
            (add-file-name (blk file-name)
              ;To Do
              blk))
 
     (multiple-value-bind (lang file-name)
-        (nparse-first-line (nget-current-line stream opt-lst)))
-      (let* ((parser (lang-to-parser lang))
-             (blk (nread-until-end-of-block parser nil)))
+        (nparse-first-line (nget-current-line stream opt-lst))
+      (print `(:multiple-value-bind ,lang ,file-name))
+      (let* ((line-parser (lang-to-parser lang))
+             (blk (nread-until-end-of-block line-parser nil)))
 
-        `((:block . ,(add-file-name blk file-name))
-          (:option . ,opt-lst)))))
+        (print `(:python ,blk))
+        `((:block ,(add-file-name blk file-name))
+          (:option ,opt-lst))))))
 
 ;----------------------------------------------------------------
 (defun with-title-block-parser (stream opt-lst)
   (labels ((parse-first-line (line)
             (multiple-value-bind (start-pos end-pos)
-                (cl-ppcre:scan "^#+" line)
+                (cl-ppcre:scan "^#+\\s*" line)
               (print `(:line ,line))
               (assert (and start-pos end-pos))
-              `(:translated :h1 ,(subseq end-pos line))))
+              `(:translated :h1 ,(subseq line end-pos))))
 
            (read-until-end-of-block (rv)
             (print `(:read-until-end-of-block ,rv))
              (let ((line (nget-current-line stream opt-lst)))
                (if (or (eq line :eof) (= (length line) 0)) (nreverse rv)
                  (let ((new-parser-p (block-parser-detector line)))
-                   (if new-parser-p (nreverse rv)
+                   (if new-parser-p 
+                     (progn
+                       (push-back-line line opt-lst)
+                       (nreverse rv))
                      (read-until-end-of-block 
                        (nconc (preset-line-parser-reverse line stream opt-lst) rv))))))))
 
     (let ((blk (read-until-end-of-block (list 
-                  (nreverse (parse-first-line (nget-current-line stream opt-lst)))))))
-      `((:block . ,blk)
-        (:option . ,opt-lst)))))
+                  (parse-first-line (nget-current-line stream opt-lst))))))
+      (print `(:blk ,blk))
+      `((:block ,blk)
+        (:option ,opt-lst)))))
 
 ;----------------------------------------------------------------
 ; 行を見て block parser を決定する。
@@ -537,19 +557,23 @@
 ;----------------------------------------------------------------
 (defun new-markdown-stream (stream &key (tag :section) (tag-option nil))
   (labels ((read-all-block (rv opt-lst)
-             (let ((line (nget-current-line stream nil)))
+             (print `(:read-all-block :rv ,rv :line ,opt-lst ,tag-option))
+             (let ((line (nget-current-line stream opt-lst)))
                (push-back-line line opt-lst)
+               (print `(:push-back-line :line ,line))
                (if (eq line :eof) (nreverse rv)
                  (let* ((parser (block-parser-detector line))
                         (new-parser (or parser #'preset-block-parser))
                         (tagged-blk (funcall new-parser stream opt-lst))
                         (blk-lst (expand-tagged-block-to-who tagged-blk)))
-                   (print `(:line ,line :tagged-blk ,tagged-blk :blk-lst ,blk-lst))
+                   (print `(:XXXXXXXXXXXXXXXXXXline ,line :tagged-blk ,tagged-blk :blk-lst ,blk-lst :parser ,parser))
                    (read-all-block (push blk-lst rv)
                                    (list (assoc :current-line opt-lst))))))))
-      `(,tag ,@tag-option ,@(read-all-block nil '((:current-line))))))
+    (print `(here))
+    (let ((current-line-init  (list (list :current-line))))
+      `(,tag ,@tag-option ,@(read-all-block nil current-line-init)))))
 
 ;----------------------------------------------------------------
-(defun new-markdown (stream &key (tag :section) (tag-option nil))
+(defun new-markdown (file-name &key (tag :section) (tag-option nil))
   (with-open-file (in file-name)
-    (new-markdown-stream stream :tag tag :tag-option tag-option)))
+    (new-markdown-stream in :tag tag :tag-option tag-option)))
