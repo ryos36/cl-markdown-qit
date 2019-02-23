@@ -371,15 +371,6 @@
         `(:div ,@(mapcar #'(lambda (word) (expand-tagged-line-to-who word opt-lst)) blk))))))
 
 ;----------------------------------------------------------------
-(defun interp-a-markdown (stream)
-  (labels ((interp-a-markdown-inner (rv)
-            (let ((tlist (markdown-line-to-tagged-list stream)))
-              (if (eq tlist :eof) (nreverse rv)
-                (interp-a-markdown-inner 
-                    (cons tlist rv))))))
-    (mapcar #'expand-tagged-block-to-who (interp-a-markdown-inner nil))))
-
-;----------------------------------------------------------------
 (defun markdown-line-to-tagged-list (stream)
   (let ((line (read-line stream nil :eof)))
     (if (eq line :eof) :eof
@@ -404,6 +395,65 @@
             (list line)))))))
 
 ;----------------------------------------------------------------
+(defun interp-a-markdown (stream)
+  (labels ((interp-a-markdown-inner (rv)
+            (let ((tlist (markdown-line-to-tagged-list stream)))
+              (if (eq tlist :eof) (nreverse rv)
+                (interp-a-markdown-inner 
+                    (cons tlist rv))))))
+    (mapcar #'expand-tagged-block-to-who (interp-a-markdown-inner nil))))
+
+;----------------------------------------------------------------
 (defun markdown (file-name &optional opt)
   `(:section ,@opt ,@(with-open-file (in file-name)
                          (interp-a-markdown in))))
+
+;----------------------------------------------------------------
+;----------------------------------------------------------------
+(defun get-current-line (stream lst-opt)
+  (let* ((current-line-in-lst-opt (cdr (assoc :current-line lst-opt)))
+         (line (or current-line (read-line stream nil :eof))))
+    line))
+
+;----------------------------------------------------------------
+(defun preset-line-parser-reverse (line stream lst-opt)
+  line)
+
+;----------------------------------------------------------------
+(defun read-until-end-of-block (stream lst-opt)
+
+;----------------------------------------------------------------
+; 通常のパーザー
+(defun preset-block-parser (stream lst-opt)
+  (labels ((read-until-end-of-block (rv)
+             (let ((line (get-current-line stream lst-opt))
+               (if (or (eq line :eof) (= (length line) 0)) (nreverse rv)
+                 (let ((new-parser-p (block-parser-detector line)))
+                   (if new-parser-p (nreverse rv)
+                     (read-until-end-of-block 
+                       (nconc (preset-line-parser-reverse line stream lst-opt) rv)))))))))
+    (read-until-end-of-block nil)))
+
+;----------------------------------------------------------------
+; 旧バージョンを生かす構造にする
+; いずれ新バージョンに完全移行
+(defun lang-block-parser (stream lst-opt)
+
+;----------------------------------------------------------------
+; 行を見て block parser を決定する。
+; block parser は ((:block . something)
+;                  (:option . something))
+; か ((:block :translated . "なにか"))
+; か ((:block :translated :tag "なにか"))
+; を返す関数。
+; 判断にも使っているので、該当するものがなければ nil を返す
+
+(defun block-parser-detector (line)
+  (cond 
+     ((cl-ppcre:scan "^```" line)
+        #'lang-block-parser)
+     ((cl-ppcre:scan "^#" line)
+        #'with-title-block-parser)
+     ((cl-ppcre:scan "^-" line)
+        #'list-block-parser)
+     (t nil)))
