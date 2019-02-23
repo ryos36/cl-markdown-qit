@@ -21,8 +21,8 @@
                  (:|id-double-quote| . python-double-quote)))))
 
 (defun make-keyword (str)
-  (intern (string-upcase str) :keyword))
-
+  (if (string= str "common lisp") :common-lisp
+    (intern (string-upcase str) :keyword)))
 
 (defun |mw/#| (x stream) `((:block ((,x . :keyword)))
                                ,'(:option . ((:lang (:style (:keyword . `(:h1 ,arg))))))))
@@ -410,66 +410,109 @@
 
 ;----------------------------------------------------------------
 ;----------------------------------------------------------------
-(defun get-current-line (stream lst-opt)
-  (let* ((current-line-in-lst-opt (cdr (assoc :current-line lst-opt)))
-         (line (or current-line (read-line stream nil :eof))))
+; opt-lst を変更することに注意 
+(defun nget-current-line (stream opt-lst)
+  (let* ((current-line-in-opt-lst (assoc :current-line opt-lst))
+         (line (or (cdr current-line-in-opt-lst) (read-line stream nil :eof))))
+    (if current-line-in-opt-lst (setf (cdr current-line-in-opt-lst) nil))
     line))
 
-;----------------------------------------------------------------
-(defun preset-line-parser-reverse (line stream lst-opt)
-  line)
+(defun push-into-option-list (key value opt-lst)
+  (push `(,key . ,value) opt-lst))
+
+(defun push-back-line (line opt-lst)
+  (let ((current-line-in-opt-lst (assoc :current-line opt-lst)))
+    (if current-line-in-opt-lst
+      (setf (cdr current-line-in-opt-lst) line)
+      (push-into-option-list :current-line line opt-lst))))
 
 ;----------------------------------------------------------------
-(defun read-until-end-of-block (stream lst-opt)
+(defun preset-line-parser-reverse (line stream opt-lst)
+  `(,line))
+
+;----------------------------------------------------------------
+(defun read-until-end-of-block (stream opt-lst)
   )
 
 ;----------------------------------------------------------------
 ; 通常のパーザー
-(defun preset-block-parser (stream lst-opt)
+(defun preset-block-parser (stream opt-lst)
   (labels ((read-until-end-of-block (rv)
-             (let ((line (get-current-line stream lst-opt)))
+             (let ((line (nget-current-line stream opt-lst)))
                (if (or (eq line :eof) (= (length line) 0)) (nreverse rv)
                  (let ((new-parser-p (block-parser-detector line)))
                    (if new-parser-p (nreverse rv)
                      (read-until-end-of-block 
-                       (nconc (preset-line-parser-reverse line stream lst-opt) rv))))))))
-    (read-until-end-of-block nil)))
+                       (nconc (preset-line-parser-reverse line stream opt-lst) rv))))))))
+    (let ((blk (read-until-end-of-block nil)))
+      `((:option ,opt-lst)
+        (:block ,blk)))))
+
+;----------------------------------------------------------------
+(defun lang-to-parser (lang)
+  (case (lang)
+    (:python . #'python-parser)
+    (:common-lisp . #'common-lisp-parser)
+    (otherwise . #'python-parser)))
 
 ;----------------------------------------------------------------
 ; ``` で始まる parser
 ; 旧バージョンを生かす構造にする
 ; いずれ新バージョンに完全移行
-(defun lang-block-parser (stream lst-opt)
-  (labels ((parse-first-line (line)
+(defun lang-block-parser (stream opt-lst)
+  (labels ((nparse-first-line (line)
             (assert (cl-ppcre:scan "^```" line))
-            (multiple-value-bind (hit-str lang file-name)
-                (cl-ppcre:scan-to-strings "^([A-Za-z][^:]):?(\\S*)" line :start 3)
-                )))
-    nil))
-#|
-              (if (null file-name) (
+            (let ((start-pos (length "```")))
+              (multiple-value-bind (hit-str argv)
+                  (cl-ppcre:scan-to-strings "^([A-Za-z][^:]*):?(\\S*)" line :start start-pos)
+                (if argv
+                  (let ((lang (make-keyword (elt argv 0)))
+                        (file-name nil))
+                    (push-into-option-list :lang lang opt-lst)
+                    (when (= (length argv) 2)
+                      (setf file-name (elt argv 1))
+                      (push-into-option-list :file-name file-name opt-lst))
+                    (values lang file-name))))))
+
+           (nread-until-end-of-block (parser rv)
+             (let ((line (nget-current-line stream opt-lst)))
+               (if (cl-ppcre:scan "^```[\\s]*" line) (nreverse rv)
+                 (let ((one-rv (funcall parser stream opt-lst)))
+                   (read-until-end-of-block parser (cons one-rv rv))))))
+           (add-file-name (blk file-name)
+             ;To Do
+             blk))
+
+    (multiple-value-bind (lang file-name)
+        (nparse-first-line (nget-current-line stream opt-lst)))
+      (let* ((parser (lang-to-parser lang))
+             (blk (nread-until-end-of-block parser nil)))
+
+        `((:block . ,(add-file-name blk file-name))
+          (:option . ,opt-lst)))))
+
+;----------------------------------------------------------------
+(defun with-title-block-parser (stream opt-lst)
+  (labels ((parse-first-line (line)
+            (multiple-value-bind (start-pos end-pos)
+                (cl-ppcre:scan "^#+" line)
+              (print `(:line ,line))
+              (assert (and start-pos end-pos))
+              `(:translated :h1 ,(subseq end-pos line))))
+
            (read-until-end-of-block (rv)
-             (let ((line (get-current-line stream lst-opt)))
-               (if (eq line :eof) ***todo***
-      (multiple-value-bind (match regs)
-        (print `(:strings ,match ,regs))
+            (print `(:read-until-end-of-block ,rv))
+             (let ((line (nget-current-line stream opt-lst)))
+               (if (or (eq line :eof) (= (length line) 0)) (nreverse rv)
+                 (let ((new-parser-p (block-parser-detector line)))
+                   (if new-parser-p (nreverse rv)
+                     (read-until-end-of-block 
+                       (nconc (preset-line-parser-reverse line stream opt-lst) rv))))))))
 
-        (let* ((flstv
-                 (map 'vector #'(lambda (x) (string-trim '(#\Space #\Tab #\Newline) x)) regs))
-               (x (print `(:flstv ,flstv)))
-               (first-word (elt flstv 0))
-               (fname (if (not (alphanumericp (char first-word 0)))
-                 (intern (concatenate 'string "mw/" first-word) 'cl-markdown-qit)))
-               (an-arg (elt flstv 1))
-               (flst (list fname an-arg stream)))
-
-          (if (fboundp fname)
-            (progn
-              #+:debug+
-              (print `(:flst ,flst))
-              (eval flst))
-            (list line))))))
-|#
+    (let ((blk (read-until-end-of-block (list 
+                  (nreverse (parse-first-line (nget-current-line stream opt-lst)))))))
+      `((:block . ,blk)
+        (:option . ,opt-lst)))))
 
 ;----------------------------------------------------------------
 ; 行を見て block parser を決定する。
@@ -489,3 +532,21 @@
      ((cl-ppcre:scan "^-" line)
         #'list-block-parser)
      (t nil)))
+
+;----------------------------------------------------------------
+(defun new-markdown (file-name &optional opt)
+  (with-open-file (in file-name)
+    (let* ((line (read-line in))
+           (parser (block-parser-detector line))
+           (tagged-blk (funcall parser in `((:current-line ,line))))
+           (blk-list (expand-tagged-block-to-who tagged-blk)))
+      `(:section ,@opt ,@blk-list))))
+
+;----------------------------------------------------------------
+(defun new-markdown-stream (stream &optional opt)
+  (let* ((line (read-line stream))
+         (parser (block-parser-detector line))
+         (new-parser (or parser #'preset-block-parser))
+         (tagged-blk (funcall new-parser stream `((:current-line . ,line))))
+         (blk-list (expand-tagged-block-to-who tagged-blk)))
+      `(:section ,@opt ,@blk-list)))
