@@ -421,23 +421,55 @@
 
 ;----------------------------------------------------------------
 (defun read-until-end-of-block (stream lst-opt)
+  )
 
 ;----------------------------------------------------------------
 ; 通常のパーザー
 (defun preset-block-parser (stream lst-opt)
   (labels ((read-until-end-of-block (rv)
-             (let ((line (get-current-line stream lst-opt))
+             (let ((line (get-current-line stream lst-opt)))
                (if (or (eq line :eof) (= (length line) 0)) (nreverse rv)
                  (let ((new-parser-p (block-parser-detector line)))
                    (if new-parser-p (nreverse rv)
                      (read-until-end-of-block 
-                       (nconc (preset-line-parser-reverse line stream lst-opt) rv)))))))))
+                       (nconc (preset-line-parser-reverse line stream lst-opt) rv))))))))
     (read-until-end-of-block nil)))
 
 ;----------------------------------------------------------------
+; ``` で始まる parser
 ; 旧バージョンを生かす構造にする
 ; いずれ新バージョンに完全移行
 (defun lang-block-parser (stream lst-opt)
+  (labels ((parse-first-line (line)
+            (assert (cl-ppcre:scan "^```" line))
+            (multiple-value-bind (hit-str lang file-name)
+                (cl-ppcre:scan-to-strings "^([A-Za-z][^:]):?(\\S*)" line :start 3)
+                )))
+    nil))
+#|
+              (if (null file-name) (
+           (read-until-end-of-block (rv)
+             (let ((line (get-current-line stream lst-opt)))
+               (if (eq line :eof) ***todo***
+      (multiple-value-bind (match regs)
+        (print `(:strings ,match ,regs))
+
+        (let* ((flstv
+                 (map 'vector #'(lambda (x) (string-trim '(#\Space #\Tab #\Newline) x)) regs))
+               (x (print `(:flstv ,flstv)))
+               (first-word (elt flstv 0))
+               (fname (if (not (alphanumericp (char first-word 0)))
+                 (intern (concatenate 'string "mw/" first-word) 'cl-markdown-qit)))
+               (an-arg (elt flstv 1))
+               (flst (list fname an-arg stream)))
+
+          (if (fboundp fname)
+            (progn
+              #+:debug+
+              (print `(:flst ,flst))
+              (eval flst))
+            (list line))))))
+|#
 
 ;----------------------------------------------------------------
 ; 行を見て block parser を決定する。
