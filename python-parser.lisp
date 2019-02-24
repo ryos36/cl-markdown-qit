@@ -36,7 +36,7 @@
                      (read-until-end-of-block next-next-rv)
                      next-next-rv)))))))
 
-    (print `(:python-string-single-quote ,opt-lst))
+    ;(print `(:python-string-single-quote ,opt-lst))
     (read-until-end-of-block rv0)))
 
 ;----------------------------------------------------------------
@@ -91,10 +91,10 @@
 ;----------------------------------------------------------------
 (defun python-line-parser (stream opt-lst &optional rv)
   (labels ((parse-one (parse-str line rv)
-             (print `(:parse-one ,parse-str ,line))
+             ;(print `(:parse-one ,parse-str ,line))
              (multiple-value-bind (start end) 
                  (cl-ppcre:scan parse-str line)
-               (print `(:start ,start :end ,end))
+               ;(print `(:start ,start :end ,end))
                (if (not end) (values line rv)
                  (let ((hit-str (subseq line start end))
                        (remain (if (= end (length line)) nil
@@ -121,14 +121,14 @@
            (parse-line-digit (line rv)
               (multiple-value-bind (line0 rv0)
                   (parse-one "^\\d+" line rv)
-                (print `(:parse-line-digit ,line0 ,rv0))
+                ;(print `(:parse-line-digit ,line0 ,rv0))
                 (if (null line0) (values nil (cons (list :nl) rv))
                   (parse-line-word line0 rv0))))
 
            (parse-line-word (line rv)
               (multiple-value-bind (line0 rv0)
                   (parse-one "^\\w+" line rv)
-                (print `(:parse-line-word ,line0 ,rv0))
+                ;(print `(:parse-line-word ,line0 ,rv0))
                 (if (null line0) (values nil (cons (list :nl) rv))
                   (parse-line-quote line0 rv0))))
 
@@ -152,10 +152,10 @@
                   (parse-line-space line0 rv0)))))
 
     (let ((line (nget-current-line stream opt-lst)))
-      (print `(:line ,line))
+      ;(print `(:line ,line))
       (multiple-value-bind (remain updated-rv)
           (parse-line-nl line rv)
-        (print `(:remain ,remain ,opt-lst))
+        ;(print `(:remain ,remain ,opt-lst))
         (if remain
           (push-back-line remain opt-lst))
         (let ((updated-updated-rv
