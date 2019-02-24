@@ -450,17 +450,17 @@
         (:block ,blk)))))
 
 ;----------------------------------------------------------------
+
+;----------------------------------------------------------------
 (defun python-parser (stream opt-lst)
-  (let ((mode nil)
-        (lang-option (assoc :python *lang-set*)))
+  (let ((lang-option (assoc :python *lang-set*)))
     (labels ((parse-one-line (line)
              (print `(:python-one-parser ,line))
-             (setf mode (not mode))
               `(:translated :div ,line))
 
              (nread-until-end-of-block (rv)
                (let ((line (nget-current-line stream opt-lst)))
-                 (print `(:nread-until-end-of-block ,line :mode ,mode))
+                 (print `(:nread-until-end-of-block))
                  (if (or (eq line :eof)
                          (cl-ppcre:scan "^```[\\s]*" line)) (nreverse rv)
                      (let ((one-rv (parse-one-line line)))

@@ -7,6 +7,7 @@
 
 (make-package 'cl-markdown-qit)
 (load "parser.lisp")
+(load "python-parser.lisp")
 
 (in-package "CL-MARKDOWN-QIT")
 #|
@@ -36,7 +37,6 @@
 (print `(:new-markdown ,(new-markdown "sect.txt" :tag-option '(:a))))
 (print :==============================================================)
 (print `(:new-markdown ,(new-markdown "test.txt" :tag-option '(:b))))
-|#
 
 (with-input-from-string (in 
                             (concatenate 'string
@@ -66,3 +66,32 @@
                                  "good" " " "by"(nl)
                                  ))
              (python-parser in '((:current-line))))))
+|#
+(print `(:python 
+          ,(with-input-from-string (in 
+                            (concatenate 'string
+                                 "'def '__init(self):" (nl)
+                                 ))
+             (python-single-quote in '((:current-line))))))
+(print `(:python 
+          ,(with-input-from-string (in 
+                            (concatenate 'string
+                                 "'def '" (nl)
+                                 ))
+             (python-single-quote in '((:current-line))))))
+
+(print `(:python 
+          ,(with-input-from-string (in 
+                            (concatenate 'string
+                                 "'def " (nl)
+                                 "xxx'def " (nl)
+                                 ))
+             (python-single-quote in '((:current-line))))))
+
+(print `(:python 
+          ,(with-input-from-string (in 
+                            (concatenate 'string
+                                 "'def \\" (nl)
+                                 "xxx'def " (nl)
+                                 ))
+             (python-single-quote in '((:current-line))))))
