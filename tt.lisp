@@ -127,7 +127,7 @@
                (python-document-triple-single-quote in nil (list (list :current-line)))))))
 |#
 
-(print `(:python-lne-parser 
+(print `(:python-line-parser 
           ,(with-input-from-string (in 
                                      (concatenate 'string
                                        "def abc(x):" (nl)
@@ -136,4 +136,4 @@
                                        "nandarone=abc(3)" (nl)
                                        "print('nandesuka:', nandesuka)" (nl)
                                        ))
-             (python-lne-parser in (list (list :current-line))))))
+             (python-line-parser in (list (list :current-line))))))
