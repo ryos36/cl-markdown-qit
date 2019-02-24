@@ -66,40 +66,74 @@
                                  "good" " " "by"(nl)
                                  ))
              (python-parser in '((:current-line))))))
-|#
-(print `(:python 
-          ,(with-input-from-string (in 
-                            (concatenate 'string
-                                 "'def '__init(self):" (nl)
-                                 ))
-             (python-string-single-quote in nil '((:current-line))))))
-(print `(:python 
-          ,(with-input-from-string (in 
-                            (concatenate 'string
-                                 "'def '" (nl)
-                                 ))
-             (python-string-single-quote in nil '((:current-line))))))
 
-(print `(:python 
-          ,(with-input-from-string (in 
-                            (concatenate 'string
+(setf test-list `(,(concatenate 'string
+                                 "'def '__init(self):" (nl)
+                                 )
+             ,(concatenate 'string
+                                 "'def '" (nl)
+                                 )
+             ,(concatenate 'string
                                  "'def " (nl)
                                  "xxx'def " (nl)
-                                 ))
-             (python-string-single-quote in nil '((:current-line))))))
-
-(print `(:python 
-          ,(with-input-from-string (in 
-                            (concatenate 'string
+                                 )
+             ,(concatenate 'string
                                  "'def \\" (nl)
                                  "xxx'def " (nl)
-                                 ))
-             (python-string-single-quote in nil '((:current-line))))))
-
-(print `(:python 
-          ,(with-input-from-string (in 
-                            (concatenate 'string
+                                 )
+             ,(concatenate 'string
                                  "'def \\" (nl)
-                                 "xxx'" (nl)
-                                 ))
-             (python-string-single-quote in nil '((:current-line))))))
+                                 "yyy'" (nl)
+                                 )))
+
+(dolist (i test-list)
+  (print `(:i ,i
+           :python 
+            ,(with-input-from-string (in i)
+               (python-string-single-quote in nil (list (list :current-line)))))))
+
+(setf test-list `(,(concatenate 'string
+                                 "   '''" (nl)
+                                 "   arere" (nl)
+                                 "   '''" (nl)
+                                 )
+             ,(concatenate 'string
+                                 "   '''" (nl)
+                                 )
+             ,(concatenate 'string
+                                 "   '''" (nl)
+                                 "   arere" (nl)
+                                 )
+             ,(concatenate 'string
+                                 "   '''here" (nl)
+                                 "   arere" (nl)
+                                 "   '''" (nl)
+                                 )
+             ,(concatenate 'string
+                                 "   '''here" (nl)
+                                 "   arere" (nl)
+                                 "   '''hhh" (nl)
+                                 )
+             ,(concatenate 'string
+                                 "    	 '''here" (nl)
+                                 "  arere" (nl)
+                                 "    '''hhh" (nl)
+                                 )))
+
+(dolist (i test-list)
+  (print `(:i ,i
+           :python 
+            ,(with-input-from-string (in i)
+               (python-document-triple-single-quote in nil (list (list :current-line)))))))
+|#
+
+(print `(:python-lne-parser 
+          ,(with-input-from-string (in 
+                                     (concatenate 'string
+                                       "def abc(x):" (nl)
+                                       "   return x" (nl)
+                                       (nl)
+                                       "nandarone=abc(3)" (nl)
+                                       "print('nandesuka:', nandesuka)" (nl)
+                                       ))
+             (python-lne-parser in (list (list :current-line))))))

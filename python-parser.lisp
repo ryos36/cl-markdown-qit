@@ -75,7 +75,88 @@
 ;----------------------------------------------------------------
 (defun python-document-triple-single-quote (stream opt-lst &optional rv)
   (python-document-quote stream opt-lst rv "'''" :document-triple-single-quote))
+
 ;----------------------------------------------------------------
 (defun python-document-triple-double-quote (stream opt-lst &optional rv)
   (python-document-quote stream opt-lst rv "\"\"\"" :document-triple-double-quote))
+
+;----------------------------------------------------------------
+(defun python-document-triple-X-quote (stream opt-lst char-X &optional rv)
+  (if (eq char-X #\') 
+    (python-document-triple-single-quote stream opt-lst rv)
+    (python-document-triple-double-quote stream opt-lst rv)))
+
+;----------------------------------------------------------------
+;----------------------------------------------------------------
+(defun python-line-parser (stream opt-lst &optional rv)
+  (labels ((parse-one (parse-str line rv)
+             (multiple-value-bind (start end) 
+                 (cl-ppcre:scan parse-str line)
+                (if (not end) (values line rv)
+                  (let ((hit-str (subseq line start end))
+                        (remain (if (= end (length line)) nil
+                            (subseq line end))))
+                    (values remain (const hit-str rv))))))
+
+           (parse-line-space (line rv)
+              (multiple-value-bind (line0 rv0)
+                  (parse-one "^\\s+" line rv)
+                (if (null line) (values nil (cons (list :nl) rv))
+                  (if (and (>= (length line0) 3)
+                           (let ((first-3-char (subseq line 0 3)))
+                             (or (string-equal "'''" first-3-char)
+                                 (string-equal "\"\"\" first-3-char))))
+                    (values list rv)
+
+                    (parse-line-digit line0 rv0)))))
+
+           (parse-line-digit (line rv)
+              (multiple-value-bind (parse-p line0 rv0)
+                  (parse-one "^\\d+" line rv)
+                (if (null line) (values nil (cons (list :nl) rv))
+                  (parse-line-word line0 rv0))))
+
+           (parse-line-word (line rv)
+              (multiple-value-bind (parse-p line0 rv0)
+                  (parse-one "^\\d+" line rv)
+                (if (null line) (values nil (cons (list :nl) rv))
+                  (parse-line-quote line0 rv0))))
+
+           (parse-line-quote (line rv)
+              (let ((first-char (char line 0)))
+                (if (or (eq first-char #\")
+                        (eq first-char #\"))
+                  (values line rv)
+                  (parse-line-comment line rv))))
+
+           (parse-line-comment (line rv)
+              (if (eq (char line 0) #\#)
+                (values nil (cons (list :nl)
+                                  (cons `(,list :comment) rv)))
+                (parse-line-others (line rv))))
+
+           (parse-line-others (line rv)
+              (multiple-value-bind (parse-p line0 rv0)
+                  (parse-one "^[^\"'#\\s]+" line rv)
+                (if (null line) (values nil (cons (list :nl) rv))
+                  (parse-line-space line0 rv0)))))
+
+    (let ((line (nget-current-line stream opt-lst)))
+      (print `(:line ,line))
+      (multiple-value-bind (remain updated-rv)
+          (parse-line-space line rv)
+        (let ((updated-updated-rv
+                (push-back-line remain opt-lst)
+                (if remain
+                  (case (char remain 0)
+                    (#\" (python-string-double-quote stream opt-lst updated-rv))
+                    (#\' (python-string-single-quote stream opt-lst updated-rv))
+                    (otherwise
+                      (assert (cl-ppcre:scan "^\\s[\"']{3}" remain))
+                      (let ((char-x (char remain 3)))
+                        (python-document-triple-X-quote stream opt-lst char-x rv)))))))
+          (let ((current-line (cdr (assoc :current-line opt-lst))))
+            (python-line-parser stream opt-lst updated-updated-rv)
+            updated-updated-rv))))))
+
 
