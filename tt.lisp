@@ -72,13 +72,13 @@
                             (concatenate 'string
                                  "'def '__init(self):" (nl)
                                  ))
-             (python-single-quote in '((:current-line))))))
+             (python-string-single-quote in nil '((:current-line))))))
 (print `(:python 
           ,(with-input-from-string (in 
                             (concatenate 'string
                                  "'def '" (nl)
                                  ))
-             (python-single-quote in '((:current-line))))))
+             (python-string-single-quote in nil '((:current-line))))))
 
 (print `(:python 
           ,(with-input-from-string (in 
@@ -86,7 +86,7 @@
                                  "'def " (nl)
                                  "xxx'def " (nl)
                                  ))
-             (python-single-quote in '((:current-line))))))
+             (python-string-single-quote in nil '((:current-line))))))
 
 (print `(:python 
           ,(with-input-from-string (in 
@@ -94,4 +94,12 @@
                                  "'def \\" (nl)
                                  "xxx'def " (nl)
                                  ))
-             (python-single-quote in '((:current-line))))))
+             (python-string-single-quote in nil '((:current-line))))))
+
+(print `(:python 
+          ,(with-input-from-string (in 
+                            (concatenate 'string
+                                 "'def \\" (nl)
+                                 "xxx'" (nl)
+                                 ))
+             (python-string-single-quote in nil '((:current-line))))))

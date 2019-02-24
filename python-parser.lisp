@@ -1,12 +1,14 @@
-(in-package "CL-MARKDOWN-QIT")
+(in-package :cl-markdown-qit)
 
+;----------------------------------------------------------------
 (defun python-continue-line-p (line)
   (let* ((line-len (length line))
          (last_1 (if (> line-len 1) (char line (- line-len 2))))
          (last (char line (- line-len 1))))
     (and (eq last #\\) (not (eq last_1 #\\)))))
 
-(defun python-quote (stream opt-lst quoted-char quoted-keyword)
+;----------------------------------------------------------------
+(defun python-string-quote (stream opt-lst rv0 quoted-char quoted-keyword)
   (labels ((parse-line (line)
              (multiple-value-bind (start end)
                (cl-ppcre:scan (format nil "[^\\\\]~a" quoted-char) line)
@@ -25,21 +27,55 @@
 
            (read-until-end-of-block (rv)
              (let ((line (nget-current-line stream opt-lst)))
-               (if (eq line :eof) (nreverse rv)
+               (if (eq line :eof) rv
                  (multiple-value-bind (one-rv nl end-parse)
                      (parse-line line)
                    (let* ((next-rv (cons one-rv rv))
                           (next-next-rv (if nl (cons nl next-rv) next-rv)))
                    (if (eq end-parse :continue)
                      (read-until-end-of-block next-next-rv)
-                     (nreverse next-next-rv))))))))
+                     next-next-rv)))))))
 
-    (read-until-end-of-block nil)))
-
-;----------------------------------------------------------------
-(defun python-double-quote (stream opt-lst)
-  (python-quote stream opt-lst #\" :|string-double-quote|))
+    (read-until-end-of-block rv0)))
 
 ;----------------------------------------------------------------
-(defun python-single-quote (stream opt-lst)
-  (python-quote stream opt-lst #\' :|string-single-quote|))
+(defun python-string-double-quote (stream opt-lst &optional rv)
+  (python-string-quote stream opt-lst #\" :string-double-quote))
+
+;----------------------------------------------------------------
+(defun python-string-single-quote (stream opt-lst &optional rv)
+  (python-string-quote stream rv opt-lst #\' :string-single-quote))
+
+;----------------------------------------------------------------
+;----------------------------------------------------------------
+(defun python-document-quote (stream opt-lst rv0 quoted-str quoted-keyword)
+  (labels ((parse-first-line(rv)
+             (let ((line (nget-current-line stream opt-lst)))
+               (multiple-value-bind (hit-str strv)
+                 (cl-ppcre:scan-to-strings 
+                   (format nil "(^\\s*)(~a)(.*)$" quoted-str) line)
+                 (assert hit-str)
+                 (cons 
+                   `(,line . ,quoted-keyword)
+                   rv))))
+
+           (read-until-end-of-block (rv)
+             (let ((line (nget-current-line stream opt-lst)))
+               (if (eq line :eof) rv
+                 (multiple-value-bind (hit-str strv)
+                   (cl-ppcre:scan-to-strings 
+                     (format nil "(^\\s*)(~a)(.*)$" quoted-str) line)
+                   (if hit-str
+                     (cons `(,line . ,quoted-keyword) rv)
+                     (read-until-end-of-block
+                       (cons `(,line . ,quoted-keyword) rv))))))))
+
+    (read-until-end-of-block (parse-first-line rv0))))
+
+;----------------------------------------------------------------
+(defun python-document-triple-single-quote (stream opt-lst &optional rv)
+  (python-document-quote stream opt-lst rv "'''" :document-triple-single-quote))
+;----------------------------------------------------------------
+(defun python-document-triple-double-quote (stream opt-lst &optional rv)
+  (python-document-quote stream opt-lst rv "\"\"\"" :document-triple-double-quote))
+

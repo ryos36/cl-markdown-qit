@@ -135,48 +135,6 @@
   (cl-ppcre:split "," line))
 
 ;----------------------------------------------------------------
-(defun python-triple-single-quote (line opt-lst &optional rv)
-  (let ((new-mode (if (cl-ppcre:scan "^\s*'''" line) nil :|triple-single-quote|)))
-    (values `((,line . :|triple-single-quote|)) new-mode)))
-
-;----------------------------------------------------------------
-(defun python-triple-double-quote (line opt-lst &optional rv)
-  (let ((new-mode (if (cl-ppcre:scan "^\s*\"\"\"" line) nil :|triple-double-quote|)))
-    (values `((,line . :|triple-single-quote|)) new-mode)))
-
-;----------------------------------------------------------------
-(defun python-quote (line opt-lst rv quoted-char quoted-keyword)
-  (if (= (length line) 1)
-    (values `((,line . ,quoted-keyword))
-            (if (not (eq (char line 0) quoted-char)) quoted-keyword))
-    (multiple-value-bind (start end)
-        (cl-ppcre:scan (format nil "[^\\\\]~a" quoted-char) line)
-      (if end
-        (let ((quoted-str-pair `(,(subseq line 0 end) . ,quoted-keyword))
-              (remain-str (subseq line end)))
-          (if (> (length remain-str) 0)
-              (multiple-value-bind (lst mode)
-                (python-line-parser remain-str opt-lst)
-                (values (cons quoted-str-pair lst) mode))
-              (list quoted-str-pair)))
-        (values `((,line . ,quoted-keyword)) quoted-keyword)))))
-
-;----------------------------------------------------------------
-(defun python-double-quote (line opt-lst &optional rv)
-  (python-quote line opt-lst nil #\" :|id-double-quote|))
-
-;----------------------------------------------------------------
-(defun python-single-quote (line opt-lst &optional rv)
-  (python-quote line opt-lst nil #\' :|id-single-quote|))
-
-;----------------------------------------------------------------
-(defun python-continue-line-p (line)
-  (let* ((line-len (length line))
-         (last_1 (if (> line-len 1) (char line (- line-len 2))))
-         (last (char line (- line-len 1))))
-    (and (eq last #\\) (not (eq last_1 #\\)))))
-
-;----------------------------------------------------------------
 ; Python 用なんちゃってパーザ
 ; 空白で区切る程度
 ; mode は :|id-double-quote| :|id-single-quote] :|triple-single-quote| :|triple-double-quote|
