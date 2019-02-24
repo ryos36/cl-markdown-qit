@@ -309,6 +309,7 @@
                        (style-func (if style (eval `(make-style-lambda ,style))))
                        (format-str (if style style "~a")))
                   (print `(:word ,word :style ,style))
+                  (if (eq :nl word) (list :br) ; NL に対する暫定処理
                   (if (eq :translated word)
                     (cdr word-pair)
                     (if style
@@ -317,7 +318,7 @@
                         ;(print `(:style-func ,style-func))
                         (push (funcall style-func word) *result*)
                         (funcall style-func word))
-                      (escape-string word)))))
+                      (escape-string word))))))
             line-lst)))
 
 ;----------------------------------------------------------------
@@ -327,7 +328,7 @@
         (blk (cdr (assoc :block lst))))
     (let ((translatedp (eq (car blk) :translated)))
       (if translatedp (cdr blk)
-        `(:div ,@(mapcar #'(lambda (word) (expand-tagged-line-to-who word opt-lst)) blk))))))
+        `(:div ,@(car (mapcar #'(lambda (word) (expand-tagged-line-to-who word opt-lst)) blk)))))))
 
 ;----------------------------------------------------------------
 (defun markdown-line-to-tagged-list (stream)
@@ -465,7 +466,7 @@
       (let* ((parser (lang-to-parser lang))
              (blk (funcall parser stream opt-lst)))
 
-        (print `(:python ,blk))
+        (print `(:LLLLL :ython ,blk))
         `((:block ,(add-file-name blk file-name))
           (:option ,opt-lst))))))
 
