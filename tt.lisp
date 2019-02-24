@@ -136,7 +136,6 @@
                                        "print('nandesuka:', nandesuka)" (nl)
                                        ))
              (python-line-parser in (list (list :current-line))))))
-|#
 (print `(:python-parser 
           ,(with-input-from-string (in 
                                      (concatenate 'string
@@ -148,3 +147,17 @@
                                        "```" (nl)
                                        ))
              (python-parser in (list (list :current-line))))))
+|#
+
+(print `(:lang-block-parser 
+          ,(with-input-from-string (in 
+                                     (concatenate 'string
+                                       "```python:test.py" (nl)
+                                       "def abc(x):" (nl)
+                                       "   return x" (nl)
+                                       (nl)
+                                       "nandarone=abc(3)" (nl)
+                                       "print('nandesuka:', nandesuka)" (nl)
+                                       "```" (nl)
+                                       ))
+             (lang-block-parser in (list (list :current-line))))))

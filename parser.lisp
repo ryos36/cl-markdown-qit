@@ -421,23 +421,19 @@
                          (cl-ppcre:scan "^```[\\s]*" line)) (nreverse rv)
                    (progn
                      (push-back-line line opt-lst)
-                       (let ((one-rv
+                       (let ((updated-rv
                                (python-line-parser stream opt-lst rv)))
 
-                         (nread-until-end-of-block one-rv)))))))
+                         (nread-until-end-of-block updated-rv)))))))
 
       (nread-until-end-of-block nil))))
 
 ;----------------------------------------------------------------
 (defun lang-to-parser (lang)
-  #'python-parser)
-  #|
   (case lang
-    (:python . #'python-parser)
-    (:common-lisp . #'common-lisp-parser)
-    (otherwise . #'python-parser)))
-)
-|#
+    (:python #'python-parser)
+    (:common-lisp  #'common-lisp-parser)
+    (otherwise  #'python-parser)))
 
 ;----------------------------------------------------------------
 ; ``` で始まる parser
@@ -467,7 +463,7 @@
         (nparse-first-line (nget-current-line stream opt-lst))
       (print `(:multiple-value-bind ,lang ,file-name))
       (let* ((parser (lang-to-parser lang))
-             (blk (parser stream opt-lst)))
+             (blk (funcall parser stream opt-lst)))
 
         (print `(:python ,blk))
         `((:block ,(add-file-name blk file-name))
