@@ -20,6 +20,7 @@
 
 (defun nl () (string #\Newline))
 
+#|
 (print `(:new-markdown-stream 
           ,(with-input-from-string (in 
                                      (concatenate 'string
@@ -35,3 +36,33 @@
 (print `(:new-markdown ,(new-markdown "sect.txt" :tag-option '(:a))))
 (print :==============================================================)
 (print `(:new-markdown ,(new-markdown "test.txt" :tag-option '(:b))))
+|#
+
+(with-input-from-string (in 
+                            (concatenate 'string
+                                 "def __init(self):" (nl)
+                                 "    xpass" (nl)
+                                 "    ypass" (nl)
+                                 (nl)
+                                 "abc = f" (nl)
+                                 "good" " " "by"(nl)
+                                 ))
+  (labels ((do-it ()
+            (let ((line (read-line in nil :eof)))
+              (if (eq line :eof) t
+                (progn
+                  (print `(:line ,line))
+                  (do-it))))))
+    (do-it)))
+
+(print `(:python 
+          ,(with-input-from-string (in 
+                            (concatenate 'string
+                                 "def __init(self):" (nl)
+                                 "    xpass" (nl)
+                                 "    ypass" (nl)
+                                 (nl)
+                                 "abc = f" (nl)
+                                 "good" " " "by"(nl)
+                                 ))
+             (python-parser in '((:current-line))))))

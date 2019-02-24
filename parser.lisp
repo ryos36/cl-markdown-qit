@@ -451,8 +451,22 @@
 
 ;----------------------------------------------------------------
 (defun python-parser (stream opt-lst)
-  (print `(:python-parser ,opt-lst))
-  `(:translated :div ,(nget-current-line stream opt-lst)))
+  (let ((mode nil)
+        (lang-option (assoc :python *lang-set*)))
+    (labels ((parse-one-line (line)
+             (print `(:python-one-parser ,line))
+             (setf mode (not mode))
+              `(:translated :div ,line))
+
+             (nread-until-end-of-block (rv)
+               (let ((line (nget-current-line stream opt-lst)))
+                 (print `(:nread-until-end-of-block ,line :mode ,mode))
+                 (if (or (eq line :eof)
+                         (cl-ppcre:scan "^```[\\s]*" line)) (nreverse rv)
+                     (let ((one-rv (parse-one-line line)))
+                       (nread-until-end-of-block (cons one-rv rv)))))))
+
+      (nread-until-end-of-block nil))))
 
 ;----------------------------------------------------------------
 (defun lang-to-parser (lang)
@@ -485,14 +499,6 @@
                       (push `(:file-name ,file-name) opt-lst))
                     (values lang file-name))))))
 
-           (nread-until-end-of-block (line-parser rv)
-             (let ((line (nget-current-line stream opt-lst)))
-               (print `(:nread-until-end-of-block ,line))
-               (if (eq line :eof) (nreverse rv)
-                 (if (cl-ppcre:scan "^```[\\s]*" line) (nreverse rv)
-                   (let ((one-rv (funcall line-parser stream opt-lst)))
-                     (print `(:funcall ,line-parser ,one-rv ,line ))
-                     (nread-until-end-of-block line-parser (cons one-rv rv)))))))
            (add-file-name (blk file-name)
              ;To Do
              blk))
@@ -500,8 +506,8 @@
     (multiple-value-bind (lang file-name)
         (nparse-first-line (nget-current-line stream opt-lst))
       (print `(:multiple-value-bind ,lang ,file-name))
-      (let* ((line-parser (lang-to-parser lang))
-             (blk (nread-until-end-of-block line-parser nil)))
+      (let* ((parser (lang-to-parser lang))
+             (blk (parser stream opt-lst)))
 
         (print `(:python ,blk))
         `((:block ,(add-file-name blk file-name))
