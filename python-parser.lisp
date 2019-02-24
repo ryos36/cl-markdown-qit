@@ -36,15 +36,16 @@
                      (read-until-end-of-block next-next-rv)
                      next-next-rv)))))))
 
+    (print `(:python-string-single-quote ,opt-lst))
     (read-until-end-of-block rv0)))
 
 ;----------------------------------------------------------------
 (defun python-string-double-quote (stream opt-lst &optional rv)
-  (python-string-quote stream opt-lst #\" :string-double-quote))
+  (python-string-quote stream opt-lst rv #\" :string-double-quote))
 
 ;----------------------------------------------------------------
 (defun python-string-single-quote (stream opt-lst &optional rv)
-  (python-string-quote stream rv opt-lst #\' :string-single-quote))
+  (python-string-quote stream opt-lst rv #\' :string-single-quote))
 
 ;----------------------------------------------------------------
 ;----------------------------------------------------------------
@@ -100,6 +101,11 @@
                                  (subseq line end))))
                    (values remain (cons hit-str rv))))))
 
+           (parse-line-nl (line rv)
+              (if (= (length line) 0)
+                (values nil (cons (list :nl) rv))
+                (parse-line-space line rv)))
+
            (parse-line-space (line rv)
               (multiple-value-bind (line0 rv0)
                   (parse-one "^\\s+" line rv)
@@ -148,8 +154,8 @@
     (let ((line (nget-current-line stream opt-lst)))
       (print `(:line ,line))
       (multiple-value-bind (remain updated-rv)
-          (parse-line-space line rv)
-        (print `(:remain ,remain))
+          (parse-line-nl line rv)
+        (print `(:remain ,remain ,opt-lst))
         (if remain
           (push-back-line remain opt-lst))
         (let ((updated-updated-rv
@@ -164,9 +170,8 @@
           (let ((current-line (cdr (assoc :current-line opt-lst))))
             (if current-line
               (python-line-parser stream opt-lst updated-updated-rv)
-              (nreverse updated-updated-rv))))))))
+              updated-updated-rv)))))))
 
 
 ;----------------------------------------------------------------
 ;----------------------------------------------------------------
-(defun python-line-parser (stream opt-lst &optional rv)

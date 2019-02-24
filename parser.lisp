@@ -412,17 +412,19 @@
 ;----------------------------------------------------------------
 (defun python-parser (stream opt-lst)
   (let ((lang-option (assoc :python *lang-set*)))
-    (labels ((parse-one-line (line)
-             (print `(:python-one-parser ,line))
-              `(:translated :div ,line))
-
+    (labels ( 
              (nread-until-end-of-block (rv)
+               (print `(:xnread-until-end-of-block ,rv))
                (let ((line (nget-current-line stream opt-lst)))
-                 (print `(:nread-until-end-of-block))
+                 (print `(:nread-until-end-of-block ,line))
                  (if (or (eq line :eof)
                          (cl-ppcre:scan "^```[\\s]*" line)) (nreverse rv)
-                     (let ((one-rv (parse-one-line line)))
-                       (nread-until-end-of-block (cons one-rv rv)))))))
+                   (progn
+                     (push-back-line line opt-lst)
+                       (let ((one-rv
+                               (python-line-parser stream opt-lst rv)))
+
+                         (nread-until-end-of-block one-rv)))))))
 
       (nread-until-end-of-block nil))))
 
