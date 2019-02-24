@@ -24,12 +24,7 @@
   (if (string= str "common lisp") :common-lisp
     (intern (string-upcase str) :keyword)))
 
-(defun |mw/#| (x stream) `((:block ((,x . :keyword)))
-                               ,'(:option . ((:lang (:style (:keyword . `(:h1 ,arg))))))))
-(defun |mw/#| (x stream) `((:block :translated :h1 ,x)))
-(defun |mw/##| (x stream) `(:h2 ,x))
-(defun |mw/###| (x stream) `(:h3 ,x))
-
+;----------------------------------------------------------------
 
 (defun parse-decorations-for-lang (opt)
   ;(print `(:parse-decorations-for-lang ,opt))
@@ -125,152 +120,11 @@
         (word-to-tagged-list word remain)))))
 
 ;----------------------------------------------------------------
-(defun scan-strings-parser (line)
-  (let ((first-char (char line 0)))
-
-    (cl-ppcre:scan (format nil "[^\\\\]~a" first-char) line)))
-
-;----------------------------------------------------------------
-(defun python-word-split (line)
-  (cl-ppcre:split "," line))
-
-;----------------------------------------------------------------
-; Python 用なんちゃってパーザ
-; 空白で区切る程度
-; mode は :|id-double-quote| :|id-single-quote] :|triple-single-quote| :|triple-double-quote|
-
-(defun python-line-parser (line opt-lst &optional rv)
-  (if (or (null line) (= (length line) 0)) (values (nreverse rv) nil)
-    (multiple-value-bind (sp-start-pos sp-end-pos)
-        (cl-ppcre:scan "^\\s+" line)
-
-      (if sp-start-pos
-        (python-line-parser (subseq line sp-end-pos) opt-lst
-              (cons (tab-to-space (subseq line sp-start-pos sp-end-pos) opt-lst) rv))
-
-        (multiple-value-bind (pnum-start-pos pnum-end-pos)
-            (cl-ppcre:scan "^\\d+" line)
-
-          ;(print `(:plp ,line ,rv))
-          (if pnum-start-pos 
-            (python-line-parser (subseq line pnum-end-pos) opt-lst
-                  (cons (subseq line pnum-start-pos pnum-end-pos) rv))
-
-            (multiple-value-bind (w-start-pos w-end-pos)
-                (cl-ppcre:scan "^\\w+" line)
-          
-                ;(print `(:plp2 ,line ,rv))
-              (if w-start-pos 
-                (python-line-parser (subseq line w-end-pos) opt-lst
-                    (cons (word-to-tagged-list (subseq line w-start-pos w-end-pos) opt-lst) rv))
-
-                (let ((line-len (length line))
-                      (first-char (char line 0)))
-
-                  ;(print `(:lf ,line-len ,first-char ,line))
-                  (cond 
-                    ((and (eq first-char #\")
-                              (>= line-len 3)
-                              (eq (char line 1) #\")
-                              (eq (char line 2) #\"))
-
-                     (values `((,line . :|triple-double-quote|) ,@rv) :|triple-double-quote|))
-
-                    ((and (eq first-char #\')
-                              (>= line-len 3)
-                              (eq (char line 1) #\')
-                              (eq (char line 2) #\'))
-                         (values `((,line . :|triple-single-quote|) ,@rv) :|triple-single-quote|))
-
-                    ((eq first-char #\#)
-                     `((,line :comment) ,@rv))
-
-                    ((eq first-char #\")
-                     (if (= line-len 1)
-                       (values `((,line . :|id-double-quote|) ,@rv) :|id-double-quote|)
-                       (multiple-value-bind (start0 end0)
-                         (scan-strings-parser line)
-
-                         (if end0
-                           (python-line-parser 
-                             (subseq line end0)
-                             opt-lst
-                             (cons `(,(subseq line 0 end0) . :|id-double-quote|) rv))
-                           (values (nreverse `((,line . :|id-double-quote|) ,@rv))
-                                   (if (python-continue-line-p line) :|id-double-quote|))))))
-
-                    ((eq first-char #\')
-                     (if (= line-len 1)
-                       (values `((,line . :|id-single-quote|) ,@rv) :|id-single-quote|)
-                       (multiple-value-bind (start1 end1)
-                         (scan-strings-parser line)
-                         (if end1
-                           (python-line-parser 
-                             (subseq line end1)
-                             opt-lst
-                             (cons `(,(subseq line 0 end1) . :|id-single-quote|) rv))
-                           (values (nreverse `((,line . :|id-single-quote|) ,@rv))
-                                   (if (python-continue-line-p line) :|id-single-quote|))))))
-                    (t (multiple-value-bind (start2 end2)
-                                (cl-ppcre:scan "^[^\"'#\\s]+" line)
-                              ;(print `(:line ,line ,start2, end2))
-                              (python-line-parser (subseq line end2)
-                                                  opt-lst
-                                                  (cons 
-                                                    (subseq line start2 end2)
-                                                    rv)
-                                                  )))))))))))))
-
-;----------------------------------------------------------------
-(defun get-function (key opt-lst &key (first-key :lang))
-  ;(print `(:get-function ,key ,opt-lst))
-  (let* ((func (cdr (assoc key (cdr (assoc first-key opt-lst)))))
-         (new-func (if func func
-                     (cdr (assoc key (cdr (assoc :pre-set *lang-set*)))))))
-    ;(print `(:get-function ,new-func))
-    (symbol-function new-func)))
-
-;----------------------------------------------------------------
-(defun get-mode-function (key opt-lst)
-  (let* ((func (cdr (assoc key (cdr (assoc :mode-set (cdr (assoc :lang opt-lst)))))))
-         (new-func (if func func
-                     (cdr (assoc :parser (cdr (assoc :pre-set *lang-set*)))))))
-    (symbol-function new-func)))
-
-;----------------------------------------------------------------
-(defun merge-lang-option (opt-lst)
-  opt-lst)
-
-;----------------------------------------------------------------
-(defun get-nolang-option (&optional opt-lst)
-  opt-lst)
-
-;----------------------------------------------------------------
-(defun |mw/```| (first-line-option stream) 
-  (let* ((decorate-option 
-          (if (> (length first-line-option) 0)
-            (merge-lang-option
-              (parse-decorations-for-lang first-line-option))
-            (get-nolang-option)))
-         (main-parser (get-function :parser decorate-option)))
-
-    (labels ((read-until-end-of-block (parser rv mode)
-                (let ((line (read-line stream)))
-                  (if (cl-ppcre:scan "^```[\\s]*" line) (nreverse rv)
-                    (multiple-value-bind
-                        (a-rv new-mode) (funcall parser line decorate-option nil )
-                      ;(print `(:mode ,mode :new-mode ,new-mode))
-                      (let ((new-parser (if new-mode (get-mode-function new-mode decorate-option) main-parser)))
-
-                        (read-until-end-of-block new-parser (cons a-rv rv) new-mode)))))))
-      `((:option . ,decorate-option)
-        (:block .  ,(read-until-end-of-block main-parser nil nil))))))
-
-;----------------------------------------------------------------
 (defun get-tag-item (key-list opt-lst)
-  (if (null key-list) opt-lst
-    (get-tag-item (cdr key-list)
-                  (cdr (assoc (car key-list) opt-lst)))))
+  (if (atom (car opt-lst)) nil
+    (if (null key-list) opt-lst
+      (get-tag-item (cdr key-list)
+                    (cdr (assoc (car key-list) opt-lst))))))
 
 ;----------------------------------------------------------------
 (defun escape-string (word)
@@ -296,7 +150,6 @@
 
 ;
 ;----------------------------------------------------------------
-;ryos
 (defun expand-tagged-line-to-who (line-lst opt-lst)
   (let ((style-list (get-tag-item '(:lang :style) opt-lst)))
     (print `(:line-lst ,line-lst :style ,style-list :opt-lst ,opt-lst))
@@ -323,50 +176,12 @@
 
 ;----------------------------------------------------------------
 (defun expand-tagged-block-to-who (lst)
-  (print `(:etbw ,lst))
   (let ((opt-lst (cdr (assoc :option lst)))
         (blk (cdr (assoc :block lst))))
     (let ((translatedp (eq (car blk) :translated)))
       (if translatedp (cdr blk)
-        `(:div ,@(car (mapcar #'(lambda (word) (expand-tagged-line-to-who word opt-lst)) blk)))))))
+        `(:div ,@(expand-tagged-line-to-who blk opt-lst))))))
 
-;----------------------------------------------------------------
-(defun markdown-line-to-tagged-list (stream)
-  (let ((line (read-line stream nil :eof)))
-    (if (eq line :eof) :eof
-      (multiple-value-bind (match regs)
-        (cl-ppcre:scan-to-strings "^([^0-9a-zA-Z]*)[	 ]*(.*)" line)
-        (print `(:strings ,match ,regs))
-
-        (let* ((flstv
-                 (map 'vector #'(lambda (x) (string-trim '(#\Space #\Tab #\Newline) x)) regs))
-               (x (print `(:flstv ,flstv)))
-               (first-word (elt flstv 0))
-               (fname (if (not (alphanumericp (char first-word 0)))
-                 (intern (concatenate 'string "mw/" first-word) 'cl-markdown-qit)))
-               (an-arg (elt flstv 1))
-               (flst (list fname an-arg stream)))
-
-          (if (fboundp fname)
-            (progn
-              #+:debug+
-              (print `(:flst ,flst))
-              (eval flst))
-            (list line)))))))
-
-;----------------------------------------------------------------
-(defun interp-a-markdown (stream)
-  (labels ((interp-a-markdown-inner (rv)
-            (let ((tlist (markdown-line-to-tagged-list stream)))
-              (if (eq tlist :eof) (nreverse rv)
-                (interp-a-markdown-inner 
-                    (cons tlist rv))))))
-    (mapcar #'expand-tagged-block-to-who (interp-a-markdown-inner nil))))
-
-;----------------------------------------------------------------
-(defun markdown (file-name &optional opt)
-  `(:section ,@opt ,@(with-open-file (in file-name)
-                         (interp-a-markdown in))))
 
 ;----------------------------------------------------------------
 ;----------------------------------------------------------------
@@ -405,8 +220,8 @@
                      (read-until-end-of-block 
                        (nconc (preset-line-parser-reverse line stream opt-lst) rv))))))))
     (let ((blk (read-until-end-of-block nil)))
-      `((:option ,opt-lst)
-        (:block ,blk)))))
+      `((:option . ,opt-lst)
+        (:block . ,blk)))))
 
 ;----------------------------------------------------------------
 
@@ -467,8 +282,8 @@
              (blk (funcall parser stream opt-lst)))
 
         (print `(:LLLLL :ython ,blk))
-        `((:block ,(add-file-name blk file-name))
-          (:option ,opt-lst))))))
+        `((:block . ,(add-file-name blk file-name))
+          (:option . ,opt-lst))))))
 
 ;----------------------------------------------------------------
 (defun with-title-block-parser (stream opt-lst)
@@ -494,8 +309,8 @@
     (let ((blk (read-until-end-of-block (list 
                   (parse-first-line (nget-current-line stream opt-lst))))))
       (print `(:blk ,blk))
-      `((:block ,blk)
-        (:option ,opt-lst)))))
+      `((:block . ,blk)
+        (:option . ,opt-lst)))))
 
 ;----------------------------------------------------------------
 ; 行を見て block parser を決定する。
@@ -537,6 +352,6 @@
       `(,tag ,@tag-option ,@(read-all-block nil current-line-init)))))
 
 ;----------------------------------------------------------------
-(defun new-markdown (file-name &key (tag :section) (tag-option nil))
+(defun markdown (file-name &key (tag :section) (tag-option nil))
   (with-open-file (in file-name)
     (new-markdown-stream in :tag tag :tag-option tag-option)))

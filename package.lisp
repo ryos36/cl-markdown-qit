@@ -8,6 +8,5 @@
   (:export
     :markdown
 
-    :interp-a-markdown
     :*lang-set*
     ))
