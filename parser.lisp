@@ -175,7 +175,6 @@
                        (style (if tag (cdr (assoc tag style-list))))
                        (style-func (if style (eval `(make-style-lambda ,style)))))
                   ;(print `(:x ,word-pair word ,word :style ,style ,word-pair))
-                  (if (eq :nl word-pair) (list :br) ; NL に対する暫定処理
                   (if (eq :translated tag)
                     word
                     (if style
@@ -184,7 +183,7 @@
                         ;(print `(:style-func ,style-func))
                         (push (funcall style-func word) *result*)
                         (funcall style-func word))
-                      (escape-string word))))))
+                      (escape-string word)))))
             line-lst)))
 
 ;----------------------------------------------------------------

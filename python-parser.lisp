@@ -213,30 +213,31 @@
 
 ;----------------------------------------------------------------
 ;----------------------------------------------------------------
+; to-one-block で :nl がくるまで一塊にしている。
+; to-block でさらにそれを一塊にしている
 (defun python-parser (stream opt-lst)
                ; ToDo
                ;   1):tab 対応
   (let ((lang-option (assoc :python *lang-set*)))
     (declare (ignore lang-option))
-    (labels ((to-one-block (tagged-list rv)
-               ;(print `(:tagged-list ,tagged-list :rv ,rv))
-               (if (null tagged-list) rv
-                 (let ((word (car tagged-list))
-                       (remain-tlst (cdr tagged-list)))
-                   (if (eq word :nl) (values rv remain-tlst)
-                     (to-one-block remain-tlst 
+    (labels ((to-one-block (who-nl-list rv)
+               (if (null who-nl-list) rv
+                 (let ((word (car who-nl-list))
+                       (remain-lst (cdr who-nl-list)))
+                   (if (eq word :nl) (values rv remain-lst)
+                     (to-one-block remain-lst 
                                    (push word rv))))))
 
-             (to-block (tagged-list rv)
-               (if (null tagged-list) rv
-                 (multiple-value-bind (line-rv updated-tagged-list)
-                     (to-one-block tagged-list nil)
-                   ;(print `(:line-rv ,line-rv :updated-tagged-list ,updated-tagged-list))
+             (to-block (who-nl-list rv)
+               (if (null who-nl-list) rv
+                 (multiple-value-bind (line-rv updated-who-nl-list)
+                     (to-one-block who-nl-list nil)
+                   ;(print `(:line-rv ,line-rv :updated-who-nl-list ,updated-who-nl-list))
                    (push (cons :translated (cons :div line-rv)) rv)
-                   (to-block updated-tagged-list rv))))
+                   (to-block updated-who-nl-list rv))))
 
              (make-return-value (rv)
-               (mapcar #'python-word-to-tagged-list rv))
+               (mapcar #'python-word-to-who-style rv))
 
              (escape-to (lst rv)
                 ;(print `(:escape-to ,lst ,rv))
@@ -289,7 +290,9 @@
         nil))))
 
 ;----------------------------------------------------------------
-(defun python-word-to-tagged-list (word)
+; word や targged-list を ほとんど who 形式にする。
+; :nl がまざっているのでちょっと who とは違う。
+(defun python-word-to-who-style (word)
   (let ((style-list (get-tag-item '(:python :style) *lang-set*)))
     (labels ((find-style (word)
                (if (listp word) 
