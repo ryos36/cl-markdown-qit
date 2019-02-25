@@ -176,14 +176,58 @@
 ;----------------------------------------------------------------
 ;----------------------------------------------------------------
 (defun python-parser (stream opt-lst)
-  (let ((lang-option (assoc :python *lang-set*)))
-    (labels ((make-return-value-with-nreverse (rv)
                ; ToDo
-               ;   1):nl を覗いて block にする
-               ;   2):tab 対応
+               ;   1):tab 対応
+  (let (len(lang-option (assoc :python *lang-set*)))
+    (labels ((to-one-block (tagged-list rv)
+               ;(print `(:tagged-list ,tagged-list :rv ,rv))
+               (if (null tagged-list) rv
+                 (let ((word (car tagged-list))
+                       (remain-tlst (cdr tagged-list)))
+                   (if (eq word :nl) (values rv remain-tlst)
+                     (to-one-block remain-tlst 
+                                   (push word rv))))))
 
-               (nreverse
-                 (mapcar #'python-word-to-tagged-list rv)))
+             (to-block (tagged-list rv)
+               (if (null tagged-list) rv
+                 (multiple-value-bind (line-rv updated-tagged-list)
+                     (to-one-block tagged-list nil)
+                   ;(print `(:line-rv ,line-rv :updated-tagged-list ,updated-tagged-list))
+                   (push (cons :translated (cons :div line-rv)) rv)
+                   (to-block updated-tagged-list rv))))
+
+             (make-return-value (rv)
+               (mapcar #'python-word-to-tagged-list rv))
+
+             (escape-to (lst rv)
+                (print `(:escape-to ,lst ,rv))
+                (if (null lst) (nreverse rv)
+                  (let ((target (car lst))
+                        (remain (cdr lst)))
+                    (cond
+                      ((listp target)
+                         (let ((first-right (car target))
+                               (remain-or-left (cdr target)))
+                           (if (keywordp remain-or-left)
+                             (escape-to
+                               remain
+                               (push
+                                 (list
+                                   (if (stringp first-right)
+                                     (escape-string first-right)
+                                     first-right)
+                                   remain-or-left) rv))
+                             (escape-to
+                               remain
+                               (push (escape-to target nil) rv)))))
+                      ((stringp target)
+                         (escape-to
+                           remain
+                           (push (escape-string target) rv)))
+                      (t 
+                        (escape-to
+                           remain
+                           (push target rv)))))))
 
              (nread-until-end-of-block (rv)
                ;(print `(:xnread-until-end-of-block ,rv))
@@ -200,8 +244,12 @@
 
                          (nread-until-end-of-block updated-rv)))))))
 
-      (make-return-value-with-nreverse
-        (nread-until-end-of-block nil)))))
+      (to-block
+        (make-return-value
+          (escape-to
+            (nread-until-end-of-block nil)
+            nil))
+        nil))))
 
 ;----------------------------------------------------------------
 (defun python-word-to-tagged-list (word)
@@ -242,8 +290,7 @@
         (print (funcall (eval `(make-style-lambda ,style-desc)) updated-word )))
         (if (null style-desc) updated-word
           (let* ((style-lambda (eval `(make-style-lambda ,style-desc))))
-            `(:translated
-               ,@(funcall style-lambda updated-word))
+            (funcall style-lambda updated-word)
             ;updated-word
             ))))))
 

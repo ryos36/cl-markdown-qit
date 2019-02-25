@@ -221,7 +221,7 @@
                                        "   return x   " (nl)
                                        (nl)
                                        "nandarone=abc(3)" (nl)
-                                       "print('nandesuka:', nandesuka)" (nl)
+                                       "print('nan<de>suka:', nandesuka)" (nl)
                                        "```" (nl)
                                        "##hello" (nl)
                                        ))
