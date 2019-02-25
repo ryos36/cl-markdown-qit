@@ -267,6 +267,8 @@
                                      (concatenate 'string
 "```python:test.py" (nl)
 "# +-----" (nl)
+"    #xxx" (nl)
+"    #yyy" (nl)
 "    def decode(self, input):" (nl)
 "        '''geg" (nl)
 "        decode function, result in xout1 and xout2" (nl)

@@ -237,7 +237,9 @@
                    (to-block updated-who-nl-list rv))))
 
              (make-return-value (rv)
-               (mapcar #'python-tagged-list-to-who-style rv))
+               (mapcar #'python-tagged-list-to-who-style 
+                       rv))
+                        ;(concat-tagged-list rv)
 
              (escape-to (lst rv)
                 ;(print `(:escape-to ,lst ,rv))
@@ -294,6 +296,7 @@
 ; :nl がまざっているのでちょっと who とは違う。
 
 (defun python-tagged-list-to-who-style (word)
+  (print `(:targged-list ,(if (listp word) (length (cdr word)))))
   (let ((style-list (get-tag-item '(:python :style) *lang-set*)))
     (labels ((find-style (word)
                (if (listp word) 
@@ -323,7 +326,14 @@
 
       (let ((style-desc (find-style word))
             (updated-word (if (listp word) (cdr word) word)))
-        #+:debug
+
+        #+:todo-debug
+        (when (listp updated-word)
+          (print `(:here ,(length updated-word)))
+          (print `(:stringp 
+                    ,(reduce #'eq (mapcar #'stringp updated-word))))
+          (setf updated-word (apply #'concatenate 'string updated-word)))
+
         (when style-desc
           (print `(:updated-word ,updated-word ,style-desc))
           (print `(make-style-lambda ,style-desc))

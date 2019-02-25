@@ -18,8 +18,8 @@
             (:comment . "# 1iji") :nl
             (:comment . "# 2iji") :nl
             :nl
-            (:comment . "# 3iji") :nl
-            (:comment . "# 4iji") :nl
+            "   " (:comment . "# 3iji") :nl
+            "   " (:comment . "# 4iji") :nl
             "def" :nl
             (:comment . "# 4iji") :nl
             "def" (:string . "# 5iji") :nl
@@ -83,3 +83,59 @@
               (matome remain (push word rv)))))))))
 
 (print `(:matome ,(matome lst)))
+
+(defun concat-tagged-list (lst &optional rv)
+  (labels ((is-target-keyword (k)
+             (case k
+               (:comment :comment)
+               (:string :string)
+               (otherwise nil)))
+   
+           (concat-tagged-list-loop (first-keyword remain-lst rv)
+             ;(print `(:concat-tagged-list0 ,first-keyword ,rv))
+             (let ((target-first-word (car remain-lst))
+                   (target-second-word (cadr remain-lst))
+                   (new-remain-lst (cddr remain-lst)))
+   
+               (if (or (not (eq target-first-word :nl))
+                       (not (listp target-second-word))) (values (nreverse rv) remain-lst)
+   
+                 (let ((target-second-keyword (car target-second-word))
+                       (target-second-str (cdr target-second-word)))
+                   (if (or (not (eq first-keyword target-second-keyword))
+                           (not (stringp target-second-str))) (values (nreverse rv) remain-lst)
+                     (concat-tagged-list-loop first-keyword new-remain-lst 
+                                          (cons target-second-str rv)))))))
+   
+           (concat-tagged-list0 (key first-lst remain-lst)
+             ;(print `(:kari-matome ,first-lst ,remain-lst))
+             (let ((first-keyword (is-target-keyword key)))
+               (if (null first-keyword) nil
+                 (let ((first-str (cdr first-lst))
+                       (second-word (car remain-lst))
+                       (third-word (cadr remain-lst))
+                       (new-remain-lst (cddr remain-lst)))
+   
+                   (if (or (not (stringp first-str))
+                           (not (eq second-word :nl))
+                           (not (listp third-word))
+                           (not (eq first-keyword (car third-word)))
+                           (not (stringp (cdr third-word)))) nil
+   
+                     (concat-tagged-list-loop
+                       first-keyword new-remain-lst 
+                       (list (cdr third-word) first-str))))))))
+    (if (null lst) (nreverse rv)
+      (let ((word (car lst))
+            (remain (cdr lst)))
+
+        (if (atom word) (matome remain (push word rv))
+          (let ((key (car word)))
+            (multiple-value-bind (new-rv new-remain)
+              (concat-tagged-list0 key word remain)
+              ;(print `(:new-rv ,new-rv))
+              (let ((arg-remain (if new-rv new-remain remain))
+                    (arg-rv (push (if new-rv (cons key new-rv) word) rv)))
+                (concat-tagged-list arg-remain arg-rv)))))))))
+
+(print `(:concat-tagged-list ,(concat-tagged-list lst)))
