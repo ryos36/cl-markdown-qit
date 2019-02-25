@@ -90,7 +90,7 @@
 ;----------------------------------------------------------------
 ; 
 (defun python-document-triple-X-quote (stream opt-lst char-X &optional rv)
-  (assert (or (eq char-X #\") (eq char-X #\')))
+  ;(assert (or (eq char-X #\") (eq char-X #\')))
   (python-document-quote stream opt-lst rv (make-string 3 :initial-element char-X) (if (eq char-X #\') :document-triple-single-quote :document-triple-single-quote)))
 
 ;----------------------------------------------------------------
@@ -153,7 +153,7 @@
            (parse-line-comment (line rv)
               (if (eq (char line 0) #\#)
                 (values nil (cons :nl
-                                  (cons `(,list :comment) rv)))
+                                  (cons `(:comment . ,line) rv)))
                 (parse-line-others line rv)))
 
            (parse-line-others (line rv)
@@ -163,20 +163,23 @@
                   (parse-line-space line0 rv0)))))
 
     (let ((line (nget-current-line stream opt-lst)))
-      (print `(:line ,line))
+      ;(print `(:line ,line))
       (multiple-value-bind (remain updated-rv)
           (parse-line-nl line rv)
         (print `(:remain ,remain ,opt-lst))
         (if remain
           (push-back-line remain opt-lst))
         (let* ((first-char (if remain (char remain 0)))
+               (x (print `(first-char ,remain ,first-char)))
                (updated-updated-rv
                  (if remain
                    (cond
-                     ((is-triple-quote remain)
+                     ((is-triple-quote (string-trim 
+                                         (format nil "~a~a" #\Space #\Tab)
+                                         remain))
                       (progn
                         (print `(:line ,line))
-                        (assert (cl-ppcre:scan "^\\s*[\"']{3}" line))
+                        (assert (cl-ppcre:scan "^\\s*[\"']{3}" remain))
                         (python-document-triple-X-quote stream opt-lst first-char rv)))
                      ((eq first-char #\")
                       (python-string-double-quote stream opt-lst updated-rv))

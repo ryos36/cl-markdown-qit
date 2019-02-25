@@ -227,10 +227,6 @@
              (markdown-stream in))))
 
 ;(format t "~%~a~%" (car (get-tag-item '(:python :style-class-code) *lang-set*)))
-|#
-(print `(:markdown ,(markdown "pp.txt")))
-;(print `(:markdown ,(markdown "pcode.py")))
-;(print `(:markdown ,(markdown "python_code.py")))
 
 (print `(:markdown-stream 
           ,(with-input-from-string (in 
@@ -246,3 +242,10 @@
 "```" (nl)
                                        ))
              (markdown-stream in))))
+
+(print `(:markdown ,(markdown "pp.txt")))
+(print `(:markdown ,(markdown "pcode.py")))
+(print `(:markdown ,(markdown "pcode2.py")))
+(print `(:markdown ,(markdown "decode.py")))
+|#
+(print `(:markdown ,(markdown "python_code.py")))
