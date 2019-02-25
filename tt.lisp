@@ -248,5 +248,32 @@
 (print `(:markdown ,(markdown "pcode2.py")))
 (print `(:markdown ,(markdown "decode.py")))
 (print `(:markdown ,(markdown "python_code.py")))
-|#
 (print `(:markdown ,(markdown "class_test.py")))
+(print `(:markdown ,(markdown "decode.py")))
+
+(print `(:markdown-stream 
+          ,(with-input-from-string (in 
+                                     (concatenate 'string
+                                       "```python:test.py" (nl)
+                                       "print('nan&<de>suka:', nandesuka)" (nl)
+                                       "a=c # そうですか？" (nl)
+                                       "```" (nl)
+                                       ))
+             (markdown-stream in))))
+|#
+
+(print `(:markdown-stream 
+          ,(with-input-from-string (in 
+                                     (concatenate 'string
+"```python:test.py" (nl)
+"# +-----" (nl)
+"    def decode(self, input):" (nl)
+"        '''" (nl)
+"        decode function, result in xout1 and xout2" (nl)
+"        '''" (nl)
+"        # split transmitted word from input into ilr and ih" (nl)
+"        ilr = input & 0x3f" (nl)
+"        ih = input >> 6" (nl)
+"```" (nl)
+                                       ))
+             (markdown-stream in))))

@@ -64,9 +64,10 @@
                    (format nil "(^\\s*)(~a)(.*)$" quoted-str) line)
                  (declare (ignore strv))
                  (assert hit-str)
-                 (cons 
-                   (make-tagged-list line)
-                   rv))))
+                 (cons :nl
+                       (cons 
+                         (make-tagged-list line)
+                         rv)))))
 
            (read-until-end-of-block (rv)
              (let ((line (nget-current-line stream opt-lst)))
@@ -76,7 +77,8 @@
                      (format nil "(^\\s*)(~a)(.*)$" quoted-str) line)
                    (declare (ignore strv))
                    (if hit-str
-                     (cons (make-tagged-list line) rv)
+                     (cons :nl
+                           (cons (make-tagged-list line) rv))
                      (read-until-end-of-block
                        (cons (make-tagged-list line) rv))))))))
 
@@ -285,10 +287,10 @@
   (let ((style-list (get-tag-item '(:python :style) *lang-set*)))
     (labels ((find-style (word)
                (if (listp word) 
-                 (find-style-from-key word style-list)
-                 (find-style-from-string word style-list)))
+                 (find-style-by-key (car word) style-list)
+                 (find-style-by-string word style-list)))
 
-             (find-style-from-string (word s-lst)
+             (find-style-by-string (word s-lst)
                (if (null s-lst) nil
                  (let* ((one-desc (car s-lst))
                         (key (car one-desc))
@@ -298,20 +300,20 @@
                         (hit (find word str-lst :test #'string-equal)))
                    (declare (ignore key))
                    (if hit style-desc
-                     (find-style-from-string word (cdr s-lst))))))
+                     (find-style-by-string word (cdr s-lst))))))
 
-             (find-style-from-key (tagged-word s-lst)
+             (find-style-by-key (tag s-lst)
+               (print `(:find-style-by-key ,tag ,s-lst))
                (if (null s-lst) nil
-                 (let* ((tag (cdr tagged-word))
-                        (one-desc (car s-lst))
+                 (let* ((one-desc (car s-lst))
                         (key (car one-desc))
                         (style-desc (caddr one-desc)))
                    (if (eq tag key) style-desc
-                     (find-style-from-key tagged-word (cdr s-lst)))))))
+                     (find-style-by-key tag (cdr s-lst)))))))
 
       (let ((style-desc (find-style word))
             (updated-word (if (listp word) (cdr word) word)))
-        #+:debug
+        #-:debug
         (when style-desc
           (print `(:updated-word ,updated-word ,style-desc))
           (print `(make-style-lambda ,style-desc))

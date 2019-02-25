@@ -11,7 +11,11 @@
       (:style-class-code . (:class "python-code"))
       (:style
         (:keyword ("def" "for" "range" "return") `(:span :class "python-keyword" ,arg))
-        (:document-triple-single-quote ("") `(:span :class "python-document" ,arg))
+        (:string-single-quote () `(:span :class "python-string" ,arg))
+        (:string-double-quote () `(:span :class "python-string" ,arg))
+        (:document-triple-single-quote () `(:span :class "python-document" ,arg))
+        (:document-triple-double-quote () `(:span :class "python-document" ,arg))
+        (:comment () `(:span :class "python-comment" ,arg))
         ))))
 
 (defun make-keyword (str)
@@ -140,10 +144,11 @@
 ; のような記述を ,arg などの , で始まるものをしらべて
 ; 引数にする lambda を生成する。
 ; macro なので関数的に使えないところに注意
-; (style-func (if style (eval `(make-style-lambda ,style))))
 ;
 ; 生成された lambda は funcall あるいは apply すればよい 
 ; 使い方はこんな感じ
+; (style-func (if style (eval `(make-style-lambda ,style))))
+; (funcall style-func word))
 
 (defmacro make-style-lambda (style-desc) 
   `#'(lambda ,
