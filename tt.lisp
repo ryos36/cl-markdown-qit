@@ -22,7 +22,7 @@
 (defun nl () (string #\Newline))
 
 #|
-(print `(:new-markdown-stream 
+(print `(:markdown-stream 
           ,(with-input-from-string (in 
                                      (concatenate 'string
                                        "nandaroune" (nl)
@@ -31,12 +31,12 @@
                                        "nandarone" (nl)
                                        "good" " " "by"(nl)
                                        ))
-             (new-markdown-stream in))))
+             (markdown-stream in))))
 
 (print :==============================================================)
-(print `(:new-markdown ,(new-markdown "sect.txt" :tag-option '(:a))))
+(print `(:markdown ,(markdown "sect.txt" :tag-option '(:a))))
 (print :==============================================================)
-(print `(:new-markdown ,(new-markdown "test.txt" :tag-option '(:b))))
+(print `(:markdown ,(markdown "test.txt" :tag-option '(:b))))
 
 (with-input-from-string (in 
                             (concatenate 'string
@@ -160,18 +160,17 @@
                                        "```" (nl)
                                        ))
              (lang-block-parser in (list (list :current-line))))))
-|#
 
-(print `(:new-markdown-stream 
+(print `(:markdown-stream 
           ,(with-input-from-string (in 
                                      (concatenate 'string
                                        "#hello" (nl)
                                        "hello" (nl)
                                        "hello" (nl)
                                        ))
-             (new-markdown-stream in))))
+             (markdown-stream in))))
 
-(print `(:new-markdown-stream 
+(print `(:markdown-stream 
           ,(with-input-from-string (in 
                                      (concatenate 'string
                                        "```python:test.py" (nl)
@@ -182,20 +181,48 @@
                                        "print('nandesuka:', nandesuka)" (nl)
                                        "```" (nl)
                                        ))
-             (new-markdown-stream in))))
+             (markdown-stream in))))
 
-(print `(:new-markdown-stream 
+(print `(:word ,(make-style-lambda '(:span arg))))
+(print `(:word ,(python-word-to-tagged-list "def")))
+
+(print `(:python-parser 
+          ,(with-input-from-string (in 
+                                     (concatenate 'string
+                                       "def abc(x):" (nl)
+                                       "   return x" (nl)
+                                       (nl)
+                                       "nandarone=abc(3)" (nl)
+                                       "print('nandesuka:', nandesuka)" (nl)
+                                       "```" (nl)
+                                       ))
+             (python-parser in (list (list :current-line))))))
+(print `(:lang-block-parser 
+          ,(with-input-from-string (in 
+                                     (concatenate 'string
+                                       "```python:test.py" (nl)
+                                       "def abc(x):" (nl)
+                                       "   return x" (nl)
+                                       (nl)
+                                       "nandarone=abc(3)" (nl)
+                                       "print('nandesuka:', nandesuka)" (nl)
+                                       "```" (nl)
+                                       ))
+             (lang-block-parser in (list (list :current-line))))))
+|#
+
+(print `(:markdown-stream 
           ,(with-input-from-string (in 
                                      (concatenate 'string
                                        "#hello" (nl)
                                        "hello" (nl)
                                        "```python:test.py" (nl)
                                        "def abc(x):" (nl)
-                                       "   return x" (nl)
+                                       "   return x   " (nl)
                                        (nl)
                                        "nandarone=abc(3)" (nl)
                                        "print('nandesuka:', nandesuka)" (nl)
                                        "```" (nl)
                                        "##hello" (nl)
                                        ))
-             (new-markdown-stream in))))
+             (markdown-stream in))))

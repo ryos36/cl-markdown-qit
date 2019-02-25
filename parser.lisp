@@ -5,27 +5,18 @@
 (defparameter *tabstop* 4)
 (defparameter *lang-set*
   '((:pre-set
-      (:name . :pre-set)
-      (:parser . first-space-to-escaped-space)
-      (:tag-to-span . python-tag-to-span) ; deprecated
-      (:word-split . python-word-split))
-
+      (:name . :pre-set))
     (:python 
       (:name . :python)
-      (:parser . python-line-parser)
-      (:word-split . python-word-split)
-      (:tag-to-span . python-tag-to-span) ; deprecated
-      (:style (:keyword . `(:span :class "python-keyword" ,arg)))
-      (:mode-set (:|triple-single-quote| . python-triple-single-quote)
-                 (:|triple-double-quote| . python-triple-double-quote)
-                 (:|id-double-quote| . python-double-quote)))))
+      (:style
+        (:keyword ("def" "for" "range" "return") `(:span :class "python-keyword" ,arg))))))
 
 (defun make-keyword (str)
   (if (string= str "common lisp") :common-lisp
     (intern (string-upcase str) :keyword)))
 
 ;----------------------------------------------------------------
-
+; 旧バージョンで ``` のあとのオプション設定に使っていた
 (defun parse-decorations-for-lang (opt)
   ;(print `(:parse-decorations-for-lang ,opt))
   (let* ((optlst (cl-ppcre:split "\\s+" opt))
@@ -132,13 +123,16 @@
     (cl-who:escape-string-minimal-plus-quotes word)))
 
 ;----------------------------------------------------------------
-; `(:span :class "python-keyword" ,arg)))
+; `(:span :class "python-keyword" ,arg)
 ; のような記述を ,arg などの , で始まるものをしらべて
 ; 引数にする lambda を生成する。
+; macro なので関数的に使えないところに注意
+; (style-func (if style (eval `(make-style-lambda ,style))))
+;
 ; 生成された lambda は funcall あるいは apply すればよい 
+; 使い方はこんな感じ
 
 (defmacro make-style-lambda (style-desc) 
-  (print `(:make-style-lambda ,style-desc))
   `#'(lambda ,
        (remove-duplicates 
          (remove nil 
@@ -148,15 +142,15 @@
 
             (cadr style-desc))) :from-end t) ,style-desc))
 
-;
 ;----------------------------------------------------------------
 (defun expand-tagged-line-to-who (line-lst opt-lst)
+  (print `(:expand-tagged-line-to-who ,line-lst))
   (let ((style-list (get-tag-item '(:lang :style) opt-lst)))
     (mapcar #'(lambda (word-pair)
                 (let* ((flag (listp word-pair))
                        (word (if flag (car word-pair) word-pair))
                        (tag (if flag (cdr word-pair)))
-                       (x `(print `(:word ,word :tag ,tag)))
+                       (x (print `(:word ,word :tag ,tag)))
                        (style (cdr (assoc tag style-list)))
                        (style-func (if style (eval `(make-style-lambda ,style))))
                        (format-str (if style style "~a")))
@@ -203,10 +197,6 @@
   `(,line))
 
 ;----------------------------------------------------------------
-(defun read-until-end-of-block (stream opt-lst)
-  )
-
-;----------------------------------------------------------------
 ; 通常のパーザー
 (defun preset-block-parser (stream opt-lst)
   (labels ((read-until-end-of-block (rv)
@@ -222,26 +212,6 @@
         (:block . ,blk)))))
 
 ;----------------------------------------------------------------
-
-;----------------------------------------------------------------
-(defun python-parser (stream opt-lst)
-  (let ((lang-option (assoc :python *lang-set*)))
-    (labels ( 
-             (nread-until-end-of-block (rv)
-               ;(print `(:xnread-until-end-of-block ,rv))
-               (let ((line (nget-current-line stream opt-lst)))
-                 ;(print `(:nread-until-end-of-block ,line))
-                 (if (or (eq line :eof)
-                         (cl-ppcre:scan "^```[\\s]*" line)) (nreverse rv)
-                   (progn
-                     (push-back-line line opt-lst)
-                       (let ((updated-rv
-                               (python-line-parser stream opt-lst rv)))
-
-                         (nread-until-end-of-block updated-rv)))))))
-
-      (nread-until-end-of-block nil))))
-
 ;----------------------------------------------------------------
 (defun lang-to-parser (lang)
   (case lang
@@ -251,8 +221,6 @@
 
 ;----------------------------------------------------------------
 ; ``` で始まる parser
-; 旧バージョンを生かす構造にする
-; いずれ新バージョンに完全移行
 (defun lang-block-parser (stream opt-lst)
   (labels ((nparse-first-line (line)
             (assert (cl-ppcre:scan "^```" line))
@@ -270,7 +238,7 @@
                     (values lang file-name))))))
 
            (add-file-name (blk file-name)
-             ;To Do
+             ;ToDo
              blk))
 
     (multiple-value-bind (lang file-name)
@@ -330,7 +298,7 @@
 
 
 ;----------------------------------------------------------------
-(defun new-markdown-stream (stream &key (tag :section) (tag-option nil))
+(defun markdown-stream (stream &key (tag :section) (tag-option nil))
   (labels ((read-all-block (rv opt-lst)
              ;(print `(:read-all-block :rv ,rv :line ,opt-lst ,tag-option))
              (let ((line (nget-current-line stream opt-lst)))
@@ -349,4 +317,4 @@
 ;----------------------------------------------------------------
 (defun markdown (file-name &key (tag :section) (tag-option nil))
   (with-open-file (in file-name)
-    (new-markdown-stream in :tag tag :tag-option tag-option)))
+    (markdown-stream in :tag tag :tag-option tag-option)))

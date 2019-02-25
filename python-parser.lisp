@@ -175,3 +175,79 @@
 
 ;----------------------------------------------------------------
 ;----------------------------------------------------------------
+(defun python-parser (stream opt-lst)
+  (let ((lang-option (assoc :python *lang-set*)))
+    (labels ((make-return-value-with-nreverse (rv)
+               ; ToDo
+               ;   1):nl を覗いて block にする
+               ;   2):tab 対応
+
+               (nreverse
+                 (mapcar #'python-word-to-tagged-list rv)))
+
+             (nread-until-end-of-block (rv)
+               ;(print `(:xnread-until-end-of-block ,rv))
+               (let ((line (nget-current-line stream opt-lst)))
+                 ;(print `(:nread-until-end-of-block ,line))
+                 (if (or (eq line :eof)
+                         (cl-ppcre:scan "^```[\\s]*" line)) 
+                   rv
+
+                   (progn
+                     (push-back-line line opt-lst)
+                       (let ((updated-rv
+                               (python-line-parser stream opt-lst rv)))
+
+                         (nread-until-end-of-block updated-rv)))))))
+
+      (make-return-value-with-nreverse
+        (nread-until-end-of-block nil)))))
+
+;----------------------------------------------------------------
+(defun python-word-to-tagged-list (word)
+  (let ((style-list (get-tag-item '(:python :style) *lang-set*)))
+    ;(print `(:style ,style-list))
+    (labels ((find-style (word)
+               (if (listp word) 
+                 (find-style-from-key word style-list)
+                 (find-style-from-string word style-list)))
+
+             (find-style-from-string (word s-lst)
+               (print `(:style ,s-lst))
+               (if (null s-lst) nil
+                 (let* ((one-desc (car s-lst))
+                        (key (car one-desc))
+                        (x (print `(:one-desc ,one-desc)))
+                        (str-lst (cadr one-desc))
+                        (style-desc (caddr one-desc))
+                        (hit (find word str-lst :test #'string-equal)))
+                   (if hit style-desc
+                     (find-style-from-string word (cdr s-lst))))))
+
+             (find-style-from-key (tagged-word s-lst)
+               (if (null s-lst) nil
+                 (let* ((tag (cdr tagged-word))
+                        (one-desc (car s-lst))
+                        (key (car one-desc))
+                        (style-desc (caddr one-desc)))
+                   (if (eq tag key) style-desc
+                     (find-style-from-key tagged-word (cdr s-lst)))))))
+
+      (let ((style-desc (find-style word))
+            (updated-word (if (listp word) (car word) word)))
+        (when style-desc
+        (print `(:updated-word ,updated-word ,style-desc))
+        (print `(make-style-lambda ,style-desc))
+        (print (eval `(make-style-lambda ,style-desc)))
+        (print (funcall (eval `(make-style-lambda ,style-desc)) updated-word )))
+        (if (null style-desc) updated-word
+          (let* ((style-lambda (eval `(make-style-lambda ,style-desc))))
+            `(:translated
+               ,@(funcall style-lambda updated-word))
+            ;updated-word
+            ))))))
+
+
+
+
+
