@@ -247,5 +247,6 @@
 (print `(:markdown ,(markdown "pcode.py")))
 (print `(:markdown ,(markdown "pcode2.py")))
 (print `(:markdown ,(markdown "decode.py")))
-|#
 (print `(:markdown ,(markdown "python_code.py")))
+|#
+(print `(:markdown ,(markdown "class_test.py")))

@@ -14,6 +14,7 @@
            (parse-line (line)
              (multiple-value-bind (start end)
                (cl-ppcre:scan (format nil "[^\\\\]~a" quoted-char) line)
+               (declare (ignore start))
                (if end 
                  (let ((quoted-str-pair (make-tagged-list (subseq line 0 end)))
                        (remain-str (subseq line end)))
@@ -52,7 +53,7 @@
 ;----------------------------------------------------------------
 ;----------------------------------------------------------------
 (defun python-document-quote (stream opt-lst rv0 quoted-str quoted-keyword)
-  (print `(:python-document-quote ,opt-lst))
+  ;(print `(:python-document-quote ,opt-lst))
   (labels ((make-tagged-list (lst)
              `(,quoted-keyword . ,lst))
 
@@ -61,6 +62,7 @@
                (multiple-value-bind (hit-str strv)
                  (cl-ppcre:scan-to-strings 
                    (format nil "(^\\s*)(~a)(.*)$" quoted-str) line)
+                 (declare (ignore strv))
                  (assert hit-str)
                  (cons 
                    (make-tagged-list line)
@@ -72,6 +74,7 @@
                  (multiple-value-bind (hit-str strv)
                    (cl-ppcre:scan-to-strings 
                      (format nil "(^\\s*)(~a)(.*)$" quoted-str) line)
+                   (declare (ignore strv))
                    (if hit-str
                      (cons (make-tagged-list line) rv)
                      (read-until-end-of-block
@@ -108,14 +111,15 @@
              ;(print `(:parse-one ,parse-str ,line))
              (multiple-value-bind (start end) 
                  (cl-ppcre:scan parse-str line)
-               ;(print `(:start ,start :end ,end))
                (if (not end) (values line rv)
                  (let ((hit-str (subseq line start end))
                        (remain (if (= end (length line)) nil
                                  (subseq line end))))
+                   ;(print `(:hit-str ,hit-str :remain ,remain))
                    (values remain (cons hit-str rv))))))
 
            (parse-line-nl (line rv)
+              ;(print `(:parse-line-nl ,line))
               (if (= (length line) 0)
                 (values nil (cons :nl rv))
                 (parse-line-space line rv)))
@@ -123,7 +127,7 @@
            (parse-line-space (line rv)
               (multiple-value-bind (line0 rv0)
                   (parse-one "^\\s+" line rv)
-                (if (null line0) (values nil (cons :nl rv))
+                (if (null line0) (values nil (cons :nl rv0))
                   (if (is-triple-quote line0)
                     (values line rv)
 
@@ -133,14 +137,14 @@
               (multiple-value-bind (line0 rv0)
                   (parse-one "^\\d+" line rv)
                 ;(print `(:parse-line-digit ,line0 ,rv0))
-                (if (null line0) (values nil (cons :nl rv))
+                (if (null line0) (values nil (cons :nl rv0))
                   (parse-line-word line0 rv0))))
 
            (parse-line-word (line rv)
               (multiple-value-bind (line0 rv0)
                   (parse-one "^\\w+" line rv)
                 ;(print `(:parse-line-word ,line0 ,rv0))
-                (if (null line0) (values nil (cons :nl rv))
+                (if (null line0) (values nil (cons :nl rv0))
                   (parse-line-quote line0 rv0))))
 
            (parse-line-quote (line rv)
@@ -157,20 +161,21 @@
                 (parse-line-others line rv)))
 
            (parse-line-others (line rv)
+              ;(print `(:line ,line))
               (multiple-value-bind (line0 rv0)
                   (parse-one "^[^\"'#\\s]+" line rv)
-                (if (null line0) (values nil (cons :nl rv))
+                ;(print `(:line0 ,line0))
+                (if (null line0) (values nil (cons :nl rv0))
                   (parse-line-space line0 rv0)))))
 
     (let ((line (nget-current-line stream opt-lst)))
       ;(print `(:line ,line))
       (multiple-value-bind (remain updated-rv)
           (parse-line-nl line rv)
-        (print `(:remain ,remain ,opt-lst))
         (if remain
           (push-back-line remain opt-lst))
         (let* ((first-char (if remain (char remain 0)))
-               (x (print `(first-char ,remain ,first-char)))
+               ;(x `(print `(:first-char ,remain ,first-char)))
                (updated-updated-rv
                  (if remain
                    (cond
@@ -178,7 +183,7 @@
                                          (format nil "~a~a" #\Space #\Tab)
                                          remain))
                       (progn
-                        (print `(:line ,line))
+                        ;(print `(:line ,line))
                         (assert (cl-ppcre:scan "^\\s*[\"']{3}" remain))
                         (python-document-triple-X-quote stream opt-lst first-char rv)))
                      ((eq first-char #\")
@@ -192,7 +197,7 @@
 
                    updated-rv))
                (current-line (cdr (assoc :current-line opt-lst))))
-          (print `(current-line ,current-line))
+          ;(print `(:current-line ,current-line))
           (if current-line
             (python-line-parser stream opt-lst updated-updated-rv)
             updated-updated-rv))))))
@@ -203,7 +208,8 @@
 (defun python-parser (stream opt-lst)
                ; ToDo
                ;   1):tab 対応
-  (let (len(lang-option (assoc :python *lang-set*)))
+  (let ((lang-option (assoc :python *lang-set*)))
+    (declare (ignore lang-option))
     (labels ((to-one-block (tagged-list rv)
                ;(print `(:tagged-list ,tagged-list :rv ,rv))
                (if (null tagged-list) rv
@@ -255,7 +261,7 @@
 
              (nread-until-end-of-block (rv)
                (let ((line (nget-current-line stream opt-lst)))
-                 (print `(:nread-until-end-of-block ,line))
+                 ;(print `(:nread-until-end-of-block ,line))
                  (if (or (eq line :eof)
                          (cl-ppcre:scan "^```[\\s]*" line))
                    rv
@@ -286,10 +292,11 @@
                (if (null s-lst) nil
                  (let* ((one-desc (car s-lst))
                         (key (car one-desc))
-                        (x `(print `(:one-desc ,one-desc)))
+                        ;(x `(print `(:one-desc ,one-desc)))
                         (str-lst (cadr one-desc))
                         (style-desc (caddr one-desc))
                         (hit (find word str-lst :test #'string-equal)))
+                   (declare (ignore key))
                    (if hit style-desc
                      (find-style-from-string word (cdr s-lst))))))
 
