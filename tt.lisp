@@ -268,7 +268,7 @@
 "```python:test.py" (nl)
 "# +-----" (nl)
 "    def decode(self, input):" (nl)
-"        '''" (nl)
+"        '''geg" (nl)
 "        decode function, result in xout1 and xout2" (nl)
 "        '''" (nl)
 "        # split transmitted word from input into ilr and ih" (nl)

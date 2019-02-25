@@ -55,6 +55,7 @@
 (defun python-document-quote (stream opt-lst rv0 quoted-str quoted-keyword)
   ;(print `(:python-document-quote ,opt-lst))
   (labels ((make-tagged-list (lst)
+            ;(print `(:make-tagged-list ,lst))
              `(,quoted-keyword . ,lst))
 
            (parse-first-line (rv)
@@ -70,12 +71,15 @@
                          rv)))))
 
            (read-until-end-of-block (rv)
+             ;(print :read-until-end-of-block)
              (let ((line (nget-current-line stream opt-lst)))
+               ;(print `(:TTT ,line))
                (if (eq line :eof) rv
                  (multiple-value-bind (hit-str strv)
                    (cl-ppcre:scan-to-strings 
-                     (format nil "(^\\s*)(~a)(.*)$" quoted-str) line)
+                     (format nil "^(\\s*)(~a)(.*)$" quoted-str) line)
                    (declare (ignore strv))
+                   ;(print `(:hit-str ,hit-str , (format nil "^(\\s*)(~a)(.*)$" quoted-str)))
                    (if hit-str
                      (cons :nl
                            (cons (make-tagged-list line) rv))
@@ -95,8 +99,13 @@
 ;----------------------------------------------------------------
 ; 
 (defun python-document-triple-X-quote (stream opt-lst char-X &optional rv)
-  ;(assert (or (eq char-X #\") (eq char-X #\')))
-  (python-document-quote stream opt-lst rv (make-string 3 :initial-element char-X) (if (eq char-X #\') :document-triple-single-quote :document-triple-single-quote)))
+  (assert (or (eq char-X #\") (eq char-X #\')))
+  (let ((quoted-str (make-string 3 :initial-element char-X))
+        (quoted-keyword (if (eq char-X #\') :document-triple-single-quote :document-triple-single-quote)))
+
+    (python-document-quote stream opt-lst rv quoted-str quoted-keyword)))
+
+  ;(python-document-quote stream opt-lst rv quoted-str (if (eq char-X #\') :document-triple-single-quote :document-triple-single-quote))
 
 ;----------------------------------------------------------------
 (defun is-triple-quote (line)
@@ -176,18 +185,14 @@
           (parse-line-nl line rv)
         (if remain
           (push-back-line remain opt-lst))
-        (let* ((first-char (if remain (char remain 0)))
+        (let* ((trimmed-str (if remain (string-trim (format nil "~a~a" #\Space #\Tab) remain)))
+               (first-char (if remain (char trimmed-str 0)))
                ;(x `(print `(:first-char ,remain ,first-char)))
                (updated-updated-rv
                  (if remain
                    (cond
-                     ((is-triple-quote (string-trim 
-                                         (format nil "~a~a" #\Space #\Tab)
-                                         remain))
-                      (progn
-                        ;(print `(:line ,line))
-                        (assert (cl-ppcre:scan "^\\s*[\"']{3}" remain))
-                        (python-document-triple-X-quote stream opt-lst first-char rv)))
+                     ((is-triple-quote trimmed-str)
+                      (python-document-triple-X-quote stream opt-lst first-char rv))
                      ((eq first-char #\")
                       (python-string-double-quote stream opt-lst updated-rv))
 
@@ -303,7 +308,7 @@
                      (find-style-by-string word (cdr s-lst))))))
 
              (find-style-by-key (tag s-lst)
-               (print `(:find-style-by-key ,tag ,s-lst))
+               ;(print `(:find-style-by-key ,tag ,s-lst))
                (if (null s-lst) nil
                  (let* ((one-desc (car s-lst))
                         (key (car one-desc))
@@ -313,7 +318,7 @@
 
       (let ((style-desc (find-style word))
             (updated-word (if (listp word) (cdr word) word)))
-        #-:debug
+        #+:debug
         (when style-desc
           (print `(:updated-word ,updated-word ,style-desc))
           (print `(make-style-lambda ,style-desc))
