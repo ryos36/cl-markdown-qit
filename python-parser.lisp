@@ -84,7 +84,8 @@
                      (cons :nl
                            (cons (make-tagged-list line) rv))
                      (read-until-end-of-block
-                       (cons (make-tagged-list line) rv))))))))
+                       (cons :nl
+                             (cons (make-tagged-list line) rv)))))))))
 
     (read-until-end-of-block (parse-first-line rv0))))
 
