@@ -10,7 +10,9 @@
       (:name . :python)
       (:style-class-code . (:class "python-code"))
       (:style
-        (:keyword ("def" "for" "range" "return") `(:span :class "python-keyword" ,arg))))))
+        (:keyword ("def" "for" "range" "return") `(:span :class "python-keyword" ,arg))
+        (:document-triple-single-quote ("") `(:span :class "python-document" ,arg))
+        ))))
 
 (defun make-keyword (str)
   (if (string= str "common lisp") :common-lisp

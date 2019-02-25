@@ -52,6 +52,7 @@
 ;----------------------------------------------------------------
 ;----------------------------------------------------------------
 (defun python-document-quote (stream opt-lst rv0 quoted-str quoted-keyword)
+  (print `(:python-document-quote ,opt-lst))
   (labels ((make-tagged-list (lst)
              `(,quoted-keyword . ,lst))
 
@@ -74,7 +75,7 @@
                    (if hit-str
                      (cons (make-tagged-list line) rv)
                      (read-until-end-of-block
-                       (cons `(,line . ,quoted-keyword) rv))))))))
+                       (cons (make-tagged-list line) rv))))))))
 
     (read-until-end-of-block (parse-first-line rv0))))
 
@@ -87,13 +88,21 @@
   (python-document-quote stream opt-lst rv "\"\"\"" :document-triple-double-quote))
 
 ;----------------------------------------------------------------
+; 
 (defun python-document-triple-X-quote (stream opt-lst char-X &optional rv)
-  (if (eq char-X #\') 
-    (python-document-triple-single-quote stream opt-lst rv)
-    (python-document-triple-double-quote stream opt-lst rv)))
+  (assert (or (eq char-X #\") (eq char-X #\')))
+  (python-document-quote stream opt-lst rv (make-string 3 :initial-element char-X) (if (eq char-X #\') :document-triple-single-quote :document-triple-single-quote)))
+
+;----------------------------------------------------------------
+(defun is-triple-quote (line)
+  (and (>= (length line) 3)
+       (let ((first-3-char (subseq line 0 3)))
+         (or (string-equal "'''" first-3-char)
+             (string-equal "\"\"\"" first-3-char)))))
 
 ;----------------------------------------------------------------
 ;----------------------------------------------------------------
+
 (defun python-line-parser (stream opt-lst &optional rv)
   (labels ((parse-one (parse-str line rv)
              ;(print `(:parse-one ,parse-str ,line))
@@ -115,11 +124,8 @@
               (multiple-value-bind (line0 rv0)
                   (parse-one "^\\s+" line rv)
                 (if (null line0) (values nil (cons :nl rv))
-                  (if (and (>= (length line0) 3)
-                           (let ((first-3-char (subseq line 0 3)))
-                             (or (string-equal "'''" first-3-char)
-                                 (string-equal "\"\"\"" first-3-char))))
-                    (values list rv)
+                  (if (is-triple-quote line0)
+                    (values line rv)
 
                     (parse-line-digit line0 rv0)))))
 
@@ -157,25 +163,36 @@
                   (parse-line-space line0 rv0)))))
 
     (let ((line (nget-current-line stream opt-lst)))
-      ;(print `(:line ,line))
+      (print `(:line ,line))
       (multiple-value-bind (remain updated-rv)
           (parse-line-nl line rv)
-        ;(print `(:remain ,remain ,opt-lst))
+        (print `(:remain ,remain ,opt-lst))
         (if remain
           (push-back-line remain opt-lst))
-        (let ((updated-updated-rv
-                (if remain
-                  (case (char remain 0)
-                    (#\" (python-string-double-quote stream opt-lst updated-rv))
-                    (#\' (python-string-single-quote stream opt-lst updated-rv))
-                    (otherwise
-                      (assert (cl-ppcre:scan "^\\s[\"']{3}" remain))
-                      (let ((char-x (char remain 3)))
-                        (python-document-triple-X-quote stream opt-lst char-x rv)))) updated-rv )))
-          (let ((current-line (cdr (assoc :current-line opt-lst))))
-            (if current-line
-              (python-line-parser stream opt-lst updated-updated-rv)
-              updated-updated-rv)))))))
+        (let* ((first-char (if remain (char remain 0)))
+               (updated-updated-rv
+                 (if remain
+                   (cond
+                     ((is-triple-quote remain)
+                      (progn
+                        (print `(:line ,line))
+                        (assert (cl-ppcre:scan "^\\s*[\"']{3}" line))
+                        (python-document-triple-X-quote stream opt-lst first-char rv)))
+                     ((eq first-char #\")
+                      (python-string-double-quote stream opt-lst updated-rv))
+
+                     ((eq first-char #\')
+                      (python-string-single-quote stream opt-lst updated-rv))
+
+                     (t
+                       (assert nil)))
+
+                   updated-rv))
+               (current-line (cdr (assoc :current-line opt-lst))))
+          (print `(current-line ,current-line))
+          (if current-line
+            (python-line-parser stream opt-lst updated-updated-rv)
+            updated-updated-rv))))))
 
 
 ;----------------------------------------------------------------
@@ -234,11 +251,10 @@
                            (push target rv)))))))
 
              (nread-until-end-of-block (rv)
-               ;(print `(:xnread-until-end-of-block ,rv))
                (let ((line (nget-current-line stream opt-lst)))
-                 ;(print `(:nread-until-end-of-block ,line))
+                 (print `(:nread-until-end-of-block ,line))
                  (if (or (eq line :eof)
-                         (cl-ppcre:scan "^```[\\s]*" line)) 
+                         (cl-ppcre:scan "^```[\\s]*" line))
                    rv
 
                    (progn

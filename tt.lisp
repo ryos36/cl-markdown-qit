@@ -209,7 +209,6 @@
                                        "```" (nl)
                                        ))
              (lang-block-parser in (list (list :current-line))))))
-|#
 
 (print `(:markdown-stream 
           ,(with-input-from-string (in 
@@ -228,3 +227,22 @@
              (markdown-stream in))))
 
 ;(format t "~%~a~%" (car (get-tag-item '(:python :style-class-code) *lang-set*)))
+|#
+(print `(:markdown ,(markdown "pp.txt")))
+;(print `(:markdown ,(markdown "pcode.py")))
+;(print `(:markdown ,(markdown "python_code.py")))
+
+(print `(:markdown-stream 
+          ,(with-input-from-string (in 
+                                     (concatenate 'string
+"```python:test.py" (nl)
+"'''" (nl)
+"なんだろう？" (nl)
+"'''" (nl)
+"def __init(self):" (nl)
+"    for i in range(10):" (nl)
+"        print i" (nl)
+"a=3" (nl)
+"```" (nl)
+                                       ))
+             (markdown-stream in))))
