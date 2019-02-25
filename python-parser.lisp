@@ -18,9 +18,9 @@
                    (let ((has-remain-p (> (length remain-str) 0)))
                      (if has-remain-p
                        (push-back-line remain-str opt-lst))
-                     (values quoted-str-pair (if (not has-remain-p) (list :nl)) :end)))
+                     (values quoted-str-pair (if (not has-remain-p) :nl) :end)))
                  (values `(,line . ,quoted-keyword) 
-                         (list :nl)
+                         :nl
                          (if (python-continue-line-p line)
                          :continue
                          :error-end)))))
@@ -103,13 +103,13 @@
 
            (parse-line-nl (line rv)
               (if (= (length line) 0)
-                (values nil (cons (list :nl) rv))
+                (values nil (cons :nl rv))
                 (parse-line-space line rv)))
 
            (parse-line-space (line rv)
               (multiple-value-bind (line0 rv0)
                   (parse-one "^\\s+" line rv)
-                (if (null line0) (values nil (cons (list :nl) rv))
+                (if (null line0) (values nil (cons :nl rv))
                   (if (and (>= (length line0) 3)
                            (let ((first-3-char (subseq line 0 3)))
                              (or (string-equal "'''" first-3-char)
@@ -122,14 +122,14 @@
               (multiple-value-bind (line0 rv0)
                   (parse-one "^\\d+" line rv)
                 ;(print `(:parse-line-digit ,line0 ,rv0))
-                (if (null line0) (values nil (cons (list :nl) rv))
+                (if (null line0) (values nil (cons :nl rv))
                   (parse-line-word line0 rv0))))
 
            (parse-line-word (line rv)
               (multiple-value-bind (line0 rv0)
                   (parse-one "^\\w+" line rv)
                 ;(print `(:parse-line-word ,line0 ,rv0))
-                (if (null line0) (values nil (cons (list :nl) rv))
+                (if (null line0) (values nil (cons :nl rv))
                   (parse-line-quote line0 rv0))))
 
            (parse-line-quote (line rv)
@@ -141,14 +141,14 @@
 
            (parse-line-comment (line rv)
               (if (eq (char line 0) #\#)
-                (values nil (cons (list :nl)
+                (values nil (cons :nl
                                   (cons `(,list :comment) rv)))
                 (parse-line-others line rv)))
 
            (parse-line-others (line rv)
               (multiple-value-bind (line0 rv0)
                   (parse-one "^[^\"'#\\s]+" line rv)
-                (if (null line0) (values nil (cons (list :nl) rv))
+                (if (null line0) (values nil (cons :nl rv))
                   (parse-line-space line0 rv0)))))
 
     (let ((line (nget-current-line stream opt-lst)))

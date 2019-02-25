@@ -155,7 +155,7 @@
                        (style-func (if style (eval `(make-style-lambda ,style))))
                        (format-str (if style style "~a")))
                   ;(print `(:word ,word :style ,style))
-                  (if (eq :nl word) (list :br) ; NL に対する暫定処理
+                  (if (eq :nl word-pair) (list :br) ; NL に対する暫定処理
                   (if (eq :translated word)
                     (cdr word-pair)
                     (if style
