@@ -183,8 +183,8 @@
                                        ))
              (markdown-stream in))))
 
-(print `(:word ,(make-style-lambda '(:span arg))))
-(print `(:word ,(python-word-to-tagged-list "def")))
+(print `(:tt :make-style-lambda ,(make-style-lambda '(:span arg))))
+(print `(:tt :python-word-to-tagged-list ,(python-word-to-tagged-list "def")))
 
 (print `(:python-parser 
           ,(with-input-from-string (in 
@@ -226,3 +226,5 @@
                                        "##hello" (nl)
                                        ))
              (markdown-stream in))))
+
+;(format t "~%~a~%" (car (get-tag-item '(:python :style-class-code) *lang-set*)))

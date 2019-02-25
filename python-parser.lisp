@@ -9,17 +9,19 @@
 
 ;----------------------------------------------------------------
 (defun python-string-quote (stream opt-lst rv0 quoted-char quoted-keyword)
-  (labels ((parse-line (line)
+  (labels ((make-tagged-list (lst)
+             `(,quoted-keyword . ,lst))
+           (parse-line (line)
              (multiple-value-bind (start end)
                (cl-ppcre:scan (format nil "[^\\\\]~a" quoted-char) line)
                (if end 
-                 (let ((quoted-str-pair `(,(subseq line 0 end) . ,quoted-keyword))
+                 (let ((quoted-str-pair (make-tagged-list (subseq line 0 end)))
                        (remain-str (subseq line end)))
                    (let ((has-remain-p (> (length remain-str) 0)))
                      (if has-remain-p
                        (push-back-line remain-str opt-lst))
                      (values quoted-str-pair (if (not has-remain-p) :nl) :end)))
-                 (values `(,line . ,quoted-keyword) 
+                 (values (make-tagged-list line)
                          :nl
                          (if (python-continue-line-p line)
                          :continue
@@ -50,14 +52,17 @@
 ;----------------------------------------------------------------
 ;----------------------------------------------------------------
 (defun python-document-quote (stream opt-lst rv0 quoted-str quoted-keyword)
-  (labels ((parse-first-line(rv)
+  (labels ((make-tagged-list (lst)
+             `(,quoted-keyword . ,lst))
+
+           (parse-first-line (rv)
              (let ((line (nget-current-line stream opt-lst)))
                (multiple-value-bind (hit-str strv)
                  (cl-ppcre:scan-to-strings 
                    (format nil "(^\\s*)(~a)(.*)$" quoted-str) line)
                  (assert hit-str)
                  (cons 
-                   `(,line . ,quoted-keyword)
+                   (make-tagged-list line)
                    rv))))
 
            (read-until-end-of-block (rv)
@@ -67,7 +72,7 @@
                    (cl-ppcre:scan-to-strings 
                      (format nil "(^\\s*)(~a)(.*)$" quoted-str) line)
                    (if hit-str
-                     (cons `(,line . ,quoted-keyword) rv)
+                     (cons (make-tagged-list line) rv)
                      (read-until-end-of-block
                        (cons `(,line . ,quoted-keyword) rv))))))))
 
@@ -200,7 +205,7 @@
                (mapcar #'python-word-to-tagged-list rv))
 
              (escape-to (lst rv)
-                (print `(:escape-to ,lst ,rv))
+                ;(print `(:escape-to ,lst ,rv))
                 (if (null lst) (nreverse rv)
                   (let ((target (car lst))
                         (remain (cdr lst)))
@@ -208,15 +213,14 @@
                       ((listp target)
                          (let ((first-right (car target))
                                (remain-or-left (cdr target)))
-                           (if (keywordp remain-or-left)
+                           ;(print `(:first-right ,first-right ,remain-or-left))
+                           (if (and (keywordp first-right) (stringp remain-or-left))
                              (escape-to
                                remain
                                (push
-                                 (list
-                                   (if (stringp first-right)
-                                     (escape-string first-right)
-                                     first-right)
-                                   remain-or-left) rv))
+                                 (cons
+                                   first-right
+                                   (escape-string remain-or-left)) rv))
                              (escape-to
                                remain
                                (push (escape-to target nil) rv)))))
@@ -254,18 +258,16 @@
 ;----------------------------------------------------------------
 (defun python-word-to-tagged-list (word)
   (let ((style-list (get-tag-item '(:python :style) *lang-set*)))
-    ;(print `(:style ,style-list))
     (labels ((find-style (word)
                (if (listp word) 
                  (find-style-from-key word style-list)
                  (find-style-from-string word style-list)))
 
              (find-style-from-string (word s-lst)
-               (print `(:style ,s-lst))
                (if (null s-lst) nil
                  (let* ((one-desc (car s-lst))
                         (key (car one-desc))
-                        (x (print `(:one-desc ,one-desc)))
+                        (x `(print `(:one-desc ,one-desc)))
                         (str-lst (cadr one-desc))
                         (style-desc (caddr one-desc))
                         (hit (find word str-lst :test #'string-equal)))
@@ -282,19 +284,15 @@
                      (find-style-from-key tagged-word (cdr s-lst)))))))
 
       (let ((style-desc (find-style word))
-            (updated-word (if (listp word) (car word) word)))
+            (updated-word (if (listp word) (cdr word) word)))
+        #+:debug
         (when style-desc
-        (print `(:updated-word ,updated-word ,style-desc))
-        (print `(make-style-lambda ,style-desc))
-        (print (eval `(make-style-lambda ,style-desc)))
-        (print (funcall (eval `(make-style-lambda ,style-desc)) updated-word )))
+          (print `(:updated-word ,updated-word ,style-desc))
+          (print `(make-style-lambda ,style-desc))
+          (print (eval `(make-style-lambda ,style-desc)))
+          (print (funcall (eval `(make-style-lambda ,style-desc)) updated-word )))
         (if (null style-desc) updated-word
           (let* ((style-lambda (eval `(make-style-lambda ,style-desc))))
             (funcall style-lambda updated-word)
             ;updated-word
             ))))))
-
-
-
-
-

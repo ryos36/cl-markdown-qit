@@ -8,6 +8,7 @@
       (:name . :pre-set))
     (:python 
       (:name . :python)
+      (:style-class-code . (:class "python-code"))
       (:style
         (:keyword ("def" "for" "range" "return") `(:span :class "python-keyword" ,arg))))))
 
@@ -112,10 +113,20 @@
 
 ;----------------------------------------------------------------
 (defun get-tag-item (key-list opt-lst)
-  (if (atom (car opt-lst)) nil
-    (if (null key-list) opt-lst
-      (get-tag-item (cdr key-list)
-                    (cdr (assoc (car key-list) opt-lst))))))
+  ; 何のための対応か不明。削除予定
+  ;(if (atom (car opt-lst)) nil)
+  ;(print `(:key-list ,key-list :opt-lst ,opt-lst))
+  (if (null key-list) (prog1 opt-lst (setf *first-opt* nil))
+    (get-tag-item (cdr key-list)
+                  (cdr (assoc (car key-list) opt-lst)))))
+
+;----------------------------------------------------------------
+#|
+(defun get-tag-item2 (key-list opt-lst)
+  (if (null key-list) opt-lst
+    (get-tag-item2 (cdr key-list)
+                   (cdr (assoc (car key-list) opt-lst)))))
+|#
 
 ;----------------------------------------------------------------
 (defun escape-string (word)
@@ -144,20 +155,22 @@
 
 ;----------------------------------------------------------------
 (defun expand-tagged-line-to-who (line-lst opt-lst)
-  (print `(:expand-tagged-line-to-who ,line-lst))
-  (let ((style-list (get-tag-item '(:lang :style) opt-lst)))
+  (let ((style-list (cdr (assoc :style opt-lst)))
+        ; なんか間違った記述の気がする。
+        ; 必要ないことがわかったら削除
+        (old-style-list '(get-tag-item '(:lang :style) opt-lst)))
     (mapcar #'(lambda (word-pair)
-                (let* ((flag (listp word-pair))
-                       (word (if flag (car word-pair) word-pair))
-                       (tag (if flag (cdr word-pair)))
-                       (x (print `(:word ,word :tag ,tag)))
-                       (style (cdr (assoc tag style-list)))
-                       (style-func (if style (eval `(make-style-lambda ,style))))
-                       (format-str (if style style "~a")))
-                  ;(print `(:word ,word :style ,style))
+                (let* ((list-flag (listp word-pair))
+                       (tagged-pair-flag (and list-flag (atom (cdr word-pair))))
+                       (tag (if list-flag (car word-pair)))
+                       (word (if list-flag (cdr word-pair) word-pair))
+                       (x `(print `(:word ,word :tag ,tag)))
+                       (style (if tag (cdr (assoc tag style-list))))
+                       (style-func (if style (eval `(make-style-lambda ,style)))))
+                  ;(print `(:x ,word-pair word ,word :style ,style ,word-pair))
                   (if (eq :nl word-pair) (list :br) ; NL に対する暫定処理
-                  (if (eq :translated word)
-                    (cdr word-pair)
+                  (if (eq :translated tag)
+                    word
                     (if style
                       (progn
                         (push `(,tag . ,style-func) *cached-style-list*)
@@ -168,13 +181,39 @@
             line-lst)))
 
 ;----------------------------------------------------------------
-(defun expand-tagged-block-to-who (lst)
-  (let ((opt-lst (cdr (assoc :option lst)))
-        (blk (cdr (assoc :block lst))))
-    (let ((translatedp (eq (car blk) :translated)))
-      (if translatedp (cdr blk)
-        `(:div ,@(expand-tagged-line-to-who blk opt-lst))))))
+; lst が 
+; (:translated なんとか)
+; ((:div なんとか) (:div なんとか)) 
+; ((:translated :tag なんとか) (:div なんとか))
+; (:class "python-code" (:translated :tag なんとか) (:div なんとか))
+; とか来ることを想定 最後の形式は skip-option で対応
+; 結果は (:div (:div ... )) などの who 形式になる
+;
+; div-option-lst を外で作っていてソースが汚い、、、
 
+(defun expand-tagged-block-to-who (lst)
+  ;(print `(:expand-tagged-block-to-who ,lst))
+  (let ((div-option-lst))
+    (labels ((skip-option (lst)
+               ;(print `(:skip-option ,lst))
+               (let ((item (car lst))
+                     (remain (cdr lst)))
+                 (if (or (keywordp item) (stringp item))
+                   (progn
+                     (push item div-option-lst)
+                     (skip-option remain))
+                   (progn 
+                     (setf div-option-lst (nreverse div-option-lst))
+                     lst)))))
+
+      (skip-option lst)
+
+      (let ((opt-lst (cdr (assoc :option lst)))
+            (blk (cdr (assoc :block lst))))
+        (let ((is-translated (eq (car blk) :translated)))
+          (if is-translated (cdr blk)
+            (let ((skipped-option-blk (skip-option blk)))
+              `(:div ,@div-option-lst ,@(expand-tagged-line-to-who skipped-option-blk opt-lst)))))))))
 
 ;----------------------------------------------------------------
 ;----------------------------------------------------------------
@@ -237,9 +276,12 @@
                       (push `(:file-name ,file-name) opt-lst))
                     (values lang file-name))))))
 
-           (add-file-name (blk file-name)
-             ;ToDo
-             blk))
+           (add-file-name (blk lang file-name)
+             (let ((div-option-lst (get-tag-item '(:python :style-class-code) *lang-set*)))
+               ;(print `(:div-option-lst ,@div-option-lst ,(cadr div-option-lst)))
+               `(,@div-option-lst 
+                  (:translated :div :class "code-file-name" ,file-name)
+                  ,@blk))))
 
     (multiple-value-bind (lang file-name)
         (nparse-first-line (nget-current-line stream opt-lst))
@@ -247,7 +289,7 @@
       (let* ((parser (lang-to-parser lang))
              (blk (funcall parser stream opt-lst)))
 
-        `((:block . ,(add-file-name blk file-name))
+        `((:block . ,(add-file-name blk lang file-name))
           (:option . ,opt-lst))))))
 
 ;----------------------------------------------------------------
