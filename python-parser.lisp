@@ -237,7 +237,7 @@
                    (to-block updated-who-nl-list rv))))
 
              (make-return-value (rv)
-               (mapcar #'python-word-to-who-style rv))
+               (mapcar #'python-tagged-list-to-who-style rv))
 
              (escape-to (lst rv)
                 ;(print `(:escape-to ,lst ,rv))
@@ -290,9 +290,10 @@
         nil))))
 
 ;----------------------------------------------------------------
-; word や targged-list を ほとんど who 形式にする。
+; 文字列 や targged-list を ほとんど who 形式にする。
 ; :nl がまざっているのでちょっと who とは違う。
-(defun python-word-to-who-style (word)
+
+(defun python-tagged-list-to-who-style (word)
   (let ((style-list (get-tag-item '(:python :style) *lang-set*)))
     (labels ((find-style (word)
                (if (listp word) 
