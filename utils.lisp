@@ -17,5 +17,10 @@
       (read-all nil))))
 
 ;----------------------------------------------------------------
-(defun make-option-list ()
-  (list (list :current-line)))
+; (list (list :current-line)) と同じだが
+; 以後 assoc をつかうので 意味的に acons を使う
+; もし :current-line が base-opt-lst にあれば重複するが
+; 履歴を残すという意味でそのまま。assoc では手前が使われるので問題なし。
+; 
+(defun make-option-list ( &optional base-opt-lst )
+  (acons :current-line nil (copy-tree base-opt-lst)))

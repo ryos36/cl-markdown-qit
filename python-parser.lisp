@@ -230,6 +230,10 @@
 ;----------------------------------------------------------------
 ; to-one-block で :nl がくるまで一塊にしている。
 ; to-block でさらにそれを一塊にしている
+;
+; 生成される who は :translated という余計な keyword が入っている
+; expand-tagged-block-to-who でそれらをとることが出来る
+;
 (defun python-parser (stream opt-lst)
                ; ToDo
                ;   1):tab 対応
@@ -396,3 +400,10 @@
               (funcall style-lambda updated-word))
             ;updated-word
             )))))
+
+;;----------------------------------------------------------------
+(defun parse-python (file-name &optional base-opt-lst)
+  (let ((opt-lst (make-option-list base-opt-lst)))
+    (expand-tagged-line-to-who
+      (with-open-file (in file-name)
+        (python-parser in opt-lst)) opt-lst)))

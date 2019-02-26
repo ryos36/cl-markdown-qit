@@ -8,7 +8,7 @@
   (:export
     :markdown
 
-    :python-parser
+    :parse-python
     :make-option-list
 
     :*lang-set*
