@@ -12,6 +12,9 @@
       (:style
         (:keyword ,(load-python-keywords) ,'`(:span :class "python-keyword" ,arg))
         (:builtin ,(load-python-builtins) ,'`(:span :class "python-builtin" ,arg))
+        (:polyphony "@polyphony.\\w*" ,'`(:span :class "polyphony-decorator" ,arg))
+        (:polyphony "@\\w*" ,'`(:span :class "python-decorator" ,arg))
+
         (:string-single-quote () ,'`(:span :class "python-string" ,arg))
         (:string-double-quote () ,'`(:span :class "python-string" ,arg))
         (:document-triple-single-quote () ,'`(:span :class "python-document" ,arg)
@@ -169,6 +172,9 @@
             (cadr style-desc))) :from-end t) ,style-desc))
 
 ;----------------------------------------------------------------
+; ここで make-style-lambda を使っているが
+; opt-lst にはなにもないので現時点で効果はない
+
 (defun expand-tagged-line-to-who (line-lst opt-lst)
   (let ((style-list (cdr (assoc :style opt-lst)))
         ; なんか間違った記述の気がする。

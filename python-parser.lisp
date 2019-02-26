@@ -331,9 +331,13 @@
                  (let* ((one-desc (car s-lst))
                         (key (car one-desc))
                         ;(x `(print `(:one-desc ,one-desc)))
-                        (str-lst (cadr one-desc))
+                        (str-or-str-lst (cadr one-desc))
                         (style-desc (caddr one-desc))
-                        (hit (find word str-lst :test #'string-equal)))
+                        (hit 
+                          (if (stringp word)
+                            (if (listp str-or-str-lst)
+                              (find word str-or-str-lst :test #'string-equal)
+                              (cl-ppcre:scan str-or-str-lst word)))))
                    (declare (ignore key))
                    (if hit style-desc
                      (find-style-by-string word (cdr s-lst))))))
