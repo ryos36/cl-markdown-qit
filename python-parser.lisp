@@ -198,7 +198,7 @@
           (push-back-line remain opt-lst))
         (let* ((trimmed-str (if remain (string-trim (format nil "~a~a" #\Space #\Tab) remain)))
                (first-char (if remain (char trimmed-str 0)))
-               (x (print `(:first-char ,remain ,first-char)))
+               (x `(print `(:first-char ,remain ,first-char)))
                (updated-updated-rv
                  (if remain
                    (cond
@@ -354,7 +354,7 @@
       (let ((style-desc (find-style word))
             (updated-word (if (listp word) (cdr word) word)))
 
-        (print `(:style-desc ,style-desc))
+        ;(print `(:style-desc ,style-desc))
         (if (and (listp word)
                  (listp style-desc)
                  (not (listp updated-word)))
@@ -373,7 +373,7 @@
                 (delim (caddr style-desc))
                 (one-style-desc (cadddr style-desc)))
 
-            (print `(:one-style-desc ,one-style-desc :new-style-desc ,new-style-desc))
+            ;(print `(:one-style-desc ,one-style-desc :new-style-desc ,new-style-desc))
             ;(assert (eq (car delim) :br))
             (setf style-desc new-style-desc)
 
@@ -383,8 +383,9 @@
                       (insert-item
                         (mapcar #'(lambda (word) (funcall one-style-lambda word)) updated-word) delim)))
               (setf updated-word (insert-item updated-word delim)))))
-        (print `(:xxxxupdated-word ,updated-word ,style-desc))
+        ;(print `(:xxxxupdated-word ,updated-word ,style-desc))
 
+        #+:debug
         (when style-desc
           (print `(:updated-word ,updated-word ,style-desc))
           (print `(make-style-lambda ,style-desc))
