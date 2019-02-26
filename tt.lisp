@@ -267,6 +267,7 @@
                                      (concatenate 'string
 "```python:test.py" (nl)
 "# +-----" (nl)
+"# +-----" (nl)
 "    #xxx" (nl)
 "    #yyy" (nl)
 "    def decode(self, input):" (nl)

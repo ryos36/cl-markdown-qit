@@ -143,7 +143,9 @@
                   (if (is-triple-quote line0)
                     (values line rv)
 
-                    (parse-line-digit line0 rv0)))))
+                    (if (eq (char line0 0) #\#)
+                      (values line rv)
+                      (parse-line-digit line0 rv0))))))
 
            (parse-line-digit (line rv)
               (multiple-value-bind (line0 rv0)
@@ -188,12 +190,17 @@
           (push-back-line remain opt-lst))
         (let* ((trimmed-str (if remain (string-trim (format nil "~a~a" #\Space #\Tab) remain)))
                (first-char (if remain (char trimmed-str 0)))
-               ;(x `(print `(:first-char ,remain ,first-char)))
+               (x (print `(:first-char ,remain ,first-char)))
                (updated-updated-rv
                  (if remain
                    (cond
                      ((is-triple-quote trimmed-str)
-                      (python-document-triple-X-quote stream opt-lst first-char rv))
+                      (python-document-triple-X-quote stream opt-lst first-char updated-rv))
+                     ((eq first-char #\#)
+                      (progn
+                        (setf (cdr (assoc :current-line opt-lst)) nil)
+                        (cons :nl (cons `(:comment . ,remain) updated-rv))))
+
                      ((eq first-char #\")
                       (python-string-double-quote stream opt-lst updated-rv))
 
@@ -238,8 +245,8 @@
 
              (make-return-value (rv)
                (mapcar #'python-tagged-list-to-who-style 
-                       rv))
-                        ;(concat-tagged-list rv)
+                      (nreverse (concat-tagged-list (nreverse rv)))))
+             ;RYOS TODO ryos todo ToDo
 
              (escape-to (lst rv)
                 ;(print `(:escape-to ,lst ,rv))
@@ -296,7 +303,7 @@
 ; :nl がまざっているのでちょっと who とは違う。
 
 (defun python-tagged-list-to-who-style (word)
-  (print `(:targged-list ,(if (listp word) (length (cdr word)))))
+  ;(print `(:tagged-list ,(if (listp word) (length (cdr word)))))
   (let ((style-list (get-tag-item '(:python :style) *lang-set*)))
     (labels ((find-style (word)
                (if (listp word) 
@@ -327,12 +334,15 @@
       (let ((style-desc (find-style word))
             (updated-word (if (listp word) (cdr word) word)))
 
-        #+:todo-debug
+        ;;;
+        #+:debug
         (when (listp updated-word)
           (print `(:here ,(length updated-word)))
-          (print `(:stringp 
-                    ,(reduce #'eq (mapcar #'stringp updated-word))))
-          (setf updated-word (apply #'concatenate 'string updated-word)))
+          (setf jgeil
+                    (reduce #'eq (mapcar #'stringp updated-word)))
+          (setf updated-word (apply #'concatenate 'string updated-word))
+          (print `(:up-updated-word ,updated-word ,jgeil))
+          )
 
         (when style-desc
           (print `(:updated-word ,updated-word ,style-desc))
@@ -341,6 +351,10 @@
           (print (funcall (eval `(make-style-lambda ,style-desc)) updated-word )))
         (if (null style-desc) updated-word
           (let* ((style-lambda (eval `(make-style-lambda ,style-desc))))
-            (funcall style-lambda updated-word)
+            (if (listp updated-word)
+              `(:div :class "python-document"
+                     ;,(find "something" (cadr style-desc) :test #'(lambda (x y) (print `(,x ,y)) (stringp y)))
+                     ,@(mapcar #'(lambda (x) (funcall style-lambda x)) updated-word))
+              (funcall style-lambda updated-word))
             ;updated-word
             ))))))

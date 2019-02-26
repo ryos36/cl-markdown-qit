@@ -27,6 +27,12 @@
             (:comment . "# 7iji") :nl
             ))
 
+(setf lst 
+ '((:COMMENT . "#&nbsp;+-----") :NL (:COMMENT . "#&nbsp;+-----") :NL
+  (:COMMENT . "&nbsp;&nbsp;&nbsp;&nbsp;#xxx") :NL
+  (:COMMENT . "&nbsp;&nbsp;&nbsp;&nbsp;#yyy") :NL "&nbsp;&nbsp;&nbsp;&nbsp;" "ih"
+  "&nbsp;" "=" "&nbsp;" "input" "&nbsp;" "&gt;&gt;" "&nbsp;" "6" :NL))
+
 (defun is-target-keyword (k)
   (case k
     (:comment :comment)
@@ -92,7 +98,7 @@
                (otherwise nil)))
    
            (concat-tagged-list-loop (first-keyword remain-lst rv)
-             ;(print `(:concat-tagged-list0 ,first-keyword ,rv))
+             (print `(:concat-tagged-list-loop ,first-keyword ,rv))
              (let ((target-first-word (car remain-lst))
                    (target-second-word (cadr remain-lst))
                    (new-remain-lst (cddr remain-lst)))
@@ -108,7 +114,7 @@
                                           (cons target-second-str rv)))))))
    
            (concat-tagged-list0 (key first-lst remain-lst)
-             ;(print `(:kari-matome ,first-lst ,remain-lst))
+             (print `(:concat-tagged-list0 ,first-lst ,remain-lst))
              (let ((first-keyword (is-target-keyword key)))
                (if (null first-keyword) nil
                  (let ((first-str (cdr first-lst))
@@ -116,6 +122,11 @@
                        (third-word (cadr remain-lst))
                        (new-remain-lst (cddr remain-lst)))
    
+                   (print `(:here ,first-str ,(not (stringp first-str))
+                             ,(not (eq second-word :nl))
+                             ,(not (listp third-word))
+                             ,(not (eq first-keyword (car third-word)))
+                             ,(not (stringp (cdr third-word)))))
                    (if (or (not (stringp first-str))
                            (not (eq second-word :nl))
                            (not (listp third-word))

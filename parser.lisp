@@ -13,9 +13,9 @@
         (:keyword ("def" "for" "range" "return") `(:span :class "python-keyword" ,arg))
         (:string-single-quote () `(:span :class "python-string" ,arg))
         (:string-double-quote () `(:span :class "python-string" ,arg))
-        (:document-triple-single-quote () `(:span :class "python-document" ,arg))
-        (:document-triple-double-quote () `(:span :class "python-document" ,arg))
-        (:comment () `(:span :class "python-comment" ,arg))
+        (:document-triple-single-quote () `(:div :class "xpython-document" ,arg))
+        (:document-triple-double-quote () `(:div :class "xpython-document" ,arg))
+        (:comment () `(:div :class "xpython-comment" ,arg))
         ))))
 
 (defun make-keyword (str)
@@ -276,8 +276,11 @@
 (defun concat-tagged-list (lst &optional rv)
   (labels ((is-target-keyword (k)
              (case k
-               (:comment :comment)
-               (:string :string)
+               (:comment k)
+               (:string-single-quote k)
+               (:string-double-quote k)
+               (:document-triple-single-quote k)
+               (:document-triple-double-quote k)
                (otherwise nil)))
    
            (concat-tagged-list-loop (first-keyword remain-lst rv)
