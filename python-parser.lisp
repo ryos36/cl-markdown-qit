@@ -2,11 +2,11 @@
 
 ;----------------------------------------------------------------
 (defun load-python-keywords ()
-  (read-file-as-list "python-keywords.txt"))
+  (read-file-as-list "python/python-keywords.txt"))
 
 ;----------------------------------------------------------------
 (defun load-python-builtins ()
-  (read-file-as-list "python-builtins.txt"))
+  (read-file-as-list "python/python-builtins.txt"))
 
 ;----------------------------------------------------------------
 (defun python-continue-line-p (line)
