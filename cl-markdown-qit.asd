@@ -11,5 +11,7 @@
   :serial t
   :components
    ((:file "package")
-    (:file "parser")
-    (:file "python-parser")))
+    (:file "utils")
+    (:file "python-parser")
+
+    (:file "parser")))

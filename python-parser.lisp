@@ -1,6 +1,14 @@
 (in-package :cl-markdown-qit)
 
 ;----------------------------------------------------------------
+(defun load-python-keywords ()
+  (read-file-as-list "python-keywords.txt"))
+
+;----------------------------------------------------------------
+(defun load-python-builtins ()
+  (read-file-as-list "python-builtins.txt"))
+
+;----------------------------------------------------------------
 (defun python-continue-line-p (line)
   (let* ((line-len (length line))
          (last_1 (if (> line-len 1) (char line (- line-len 2))))
@@ -240,7 +248,9 @@
                  (multiple-value-bind (line-rv updated-who-nl-list)
                      (to-one-block who-nl-list nil)
                    ;(print `(:line-rv ,line-rv :updated-who-nl-list ,updated-who-nl-list))
-                   (push (cons :translated (cons :div line-rv)) rv)
+                   (push (cons :translated (cons :div 
+                                                 (or line-rv '((:br)))
+                                                 )) rv)
                    (to-block updated-who-nl-list rv))))
 
              (make-return-value (rv)
@@ -299,7 +309,13 @@
         nil))))
 
 ;----------------------------------------------------------------
-; 文字列 や targged-list を ほとんど who 形式にする。
+(defun insert-item (lst item &key (reverse-func #'reverse))
+  (cdr
+   (reduce #'(lambda (x b) (cons item(cons b x))) (cons nil (funcall reverse-func lst)))))
+
+;----------------------------------------------------------------
+; 個々の 文字列 や targged-list を ほとんど who 形式にする。
+; word はリストではないことに注意
 ; :nl がまざっているのでちょっと who とは違う。
 
 (defun python-tagged-list-to-who-style (word)
@@ -327,22 +343,43 @@
                (if (null s-lst) nil
                  (let* ((one-desc (car s-lst))
                         (key (car one-desc))
-                        (style-desc (caddr one-desc)))
-                   (if (eq tag key) style-desc
+                        (style-desc-list (cddr one-desc)))
+                   (if (eq tag key) style-desc-list
                      (find-style-by-key tag (cdr s-lst)))))))
 
       (let ((style-desc (find-style word))
             (updated-word (if (listp word) (cdr word) word)))
 
-        ;;;
-        #+:debug
+        (print `(:style-desc ,style-desc))
+        (if (and (listp word)
+                 (listp style-desc)
+                 (not (listp updated-word)))
+          (setf style-desc (car style-desc)))
+
+        ; あまりきれいではないが
+        ; 両方に対応 後者は使わないかも
+        ;(:document-triple-single-quote () `(:span :class "python-document" ,arg) `(:span :class "python-document" ,@arg) (:br))
+        ;(:document-triple-single-quote () `(:span :class "python-document" ,arg) `(:span :class "python-document" ,@arg) (:br) `(:span ,arg))
+
         (when (listp updated-word)
-          (print `(:here ,(length updated-word)))
-          (setf jgeil
-                    (reduce #'eq (mapcar #'stringp updated-word)))
-          (setf updated-word (apply #'concatenate 'string updated-word))
-          (print `(:up-updated-word ,updated-word ,jgeil))
-          )
+          (assert (listp style-desc))
+          (assert (reduce #'eq (mapcar #'stringp updated-word)))
+
+          (let ((new-style-desc (cadr style-desc))
+                (delim (caddr style-desc))
+                (one-style-desc (cadddr style-desc)))
+
+            (print `(:one-style-desc ,one-style-desc :new-style-desc ,new-style-desc))
+            ;(assert (eq (car delim) :br))
+            (setf style-desc new-style-desc)
+
+            (if one-style-desc
+              (let ((one-style-lambda (eval `(make-style-lambda ,one-style-desc))))
+                (setf updated-word 
+                      (insert-item
+                        (mapcar #'(lambda (word) (funcall one-style-lambda word)) updated-word) delim)))
+              (setf updated-word (insert-item updated-word delim)))))
+        (print `(:xxxxupdated-word ,updated-word ,style-desc))
 
         (when style-desc
           (print `(:updated-word ,updated-word ,style-desc))
@@ -351,10 +388,6 @@
           (print (funcall (eval `(make-style-lambda ,style-desc)) updated-word )))
         (if (null style-desc) updated-word
           (let* ((style-lambda (eval `(make-style-lambda ,style-desc))))
-            (if (listp updated-word)
-              `(:div :class "python-document"
-                     ;,(find "something" (cadr style-desc) :test #'(lambda (x y) (print `(,x ,y)) (stringp y)))
-                     ,@(mapcar #'(lambda (x) (funcall style-lambda x)) updated-word))
               (funcall style-lambda updated-word))
             ;updated-word
-            ))))))
+            )))))

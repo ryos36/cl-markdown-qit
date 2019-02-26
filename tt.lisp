@@ -6,8 +6,9 @@
 (mf "```python:hhh.py :hebereke")
 
 (make-package 'cl-markdown-qit)
-(load "parser.lisp")
+(load "utils.lisp")
 (load "python-parser.lisp")
+(load "parser.lisp")
 
 (in-package "CL-MARKDOWN-QIT")
 #|
@@ -260,7 +261,6 @@
                                        "```" (nl)
                                        ))
              (markdown-stream in))))
-|#
 
 (print `(:markdown-stream 
           ,(with-input-from-string (in 
@@ -280,3 +280,22 @@
 "```" (nl)
                                        ))
              (markdown-stream in))))
+
+(print (load-python-keywords))
+(print (load-python-builtins))
+
+(setf tlst '("abc" :nl "def" "abs"
+             (:document-triple-single-quote . "doc abc")
+             (:document-triple-single-quote "doc-xyz" "doc-rst" "doc-mno")
+             (:document-triple-double-quote . "doc abc")
+             (:document-triple-double-quote "dddoc-xyz" "dddoc-rst" "dddoc-mno")
+             (:comment . "com abc")
+             (:comment "cccom-xyz" "cccom-rst" "cccom-mno")
+             ))
+(print `(:python-tagged-list-to-who-style 
+          ,(mapcar #'python-tagged-list-to-who-style tlst)))
+
+;(print `(*lang-set* ,*lang-set*))
+|#
+
+(print `(:markdown ,(markdown "adpcm_nl.py")))

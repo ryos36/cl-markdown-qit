@@ -4,26 +4,27 @@
 (defparameter *result* nil)
 (defparameter *tabstop* 4)
 (defparameter *lang-set*
-  '((:pre-set
+  `((:pre-set
       (:name . :pre-set))
     (:python 
       (:name . :python)
       (:style-class-code . (:class "python-code"))
       (:style
-        (:keyword ("def" "for" "range" "return") `(:span :class "python-keyword" ,arg))
-        (:string-single-quote () `(:span :class "python-string" ,arg))
-        (:string-double-quote () `(:span :class "python-string" ,arg))
-        (:document-triple-single-quote () `(:span :class "python-document" ,arg)
-                                       `(:span ,arg)
-                                       (:br)
-                                       `(:span :class "python-document" ,@arg))
-        (:document-triple-double-quote () `(:span :class "python-document" ,arg))
-        (:comment () `(:span :class "python-comment" ,arg))
+        (:keyword ,(load-python-keywords) ,'`(:span :class "python-keyword" ,arg))
+        (:builtin ,(load-python-builtins) ,'`(:span :class "python-builtin" ,arg))
+        (:string-single-quote () ,'`(:span :class "python-string" ,arg))
+        (:string-double-quote () ,'`(:span :class "python-string" ,arg))
+        (:document-triple-single-quote () ,'`(:span :class "python-document" ,arg)
+                                       ,'`(:span :class "python-document" ,@arg)
+                                       (:br))
+        (:document-triple-double-quote () ,'`(:span :class "python-document" ,arg)
+                                       ,'`(:span :class "python-document" ,@arg)
+                                       (:br))
+        (:comment () ,'`(:span :class "python-comment" ,arg)
+                                       ,'`(:span :class "python-comment" ,@arg)
+                                       (:br))
         ))))
 
-(defun make-keyword (str)
-  (if (string= str "common lisp") :common-lisp
-    (intern (string-upcase str) :keyword)))
 
 ;----------------------------------------------------------------
 ; 旧バージョンで ``` のあとのオプション設定に使っていた
