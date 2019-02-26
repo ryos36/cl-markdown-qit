@@ -257,13 +257,11 @@
                                                  )) rv)
                    (to-block updated-who-nl-list rv))))
 
-             (my-nreverse (lst)
-                          lst)
              (make-return-value (lst)
                (mapcar #'python-tagged-list-to-who-style 
-                      (my-nreverse (concat-tagged-list (my-nreverse lst)))))
+                      (concat-tagged-list lst)))
              ; RYOS TODO ryos todo ToDo
-             ; nreverse は整理しなければならない
+             ; nreverse を削除してうまく言ったつもり
 
              (escape-to (lst rv)
                 ;(print `(:escape-to ,lst ,rv))
