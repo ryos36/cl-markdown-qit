@@ -260,7 +260,8 @@
              (make-return-value (lst)
                (mapcar #'python-tagged-list-to-who-style 
                       (nreverse (concat-tagged-list (nreverse lst)))))
-             ;RYOS TODO ryos todo ToDo
+             ; RYOS TODO ryos todo ToDo
+             ; nreverse は整理しなければならない
 
              (escape-to (lst rv)
                 ;(print `(:escape-to ,lst ,rv))
@@ -322,10 +323,10 @@
 ; word はリストではないことに注意
 ; :nl がまざっているのでちょっと who とは違う。
 
-(defun python-tagged-list-to-who-style (word)
-  ;(print `(:tagged-list ,(if (listp word) (length (cdr word)))))
+(defun python-tagged-list-to-who-style (word &optional add-opt-lst)
+  ;(print `(:tagged-list ,word ,(if (listp word) (length (cdr word)))))
   (let ((style-list (get-tag-item '(:python :style) *lang-set*)))
-    (labels ((find-style (word)
+    (labels ((deprecated-find-style (word)
                (if (listp word) 
                  (find-style-by-key (car word) style-list)
                  (find-style-by-string word style-list)))
@@ -352,54 +353,60 @@
                  (let* ((one-desc (car s-lst))
                         (key (car one-desc))
                         (style-desc-list (cddr one-desc)))
-                   (if (eq tag key) style-desc-list
-                     (find-style-by-key tag (cdr s-lst)))))))
+                   (if (eq tag key) (values-list style-desc-list)
+                     (find-style-by-key tag (cdr s-lst))))))
 
-      (let ((style-desc (find-style word))
-            (updated-word (if (listp word) (cdr word) word)))
+             (get-type (word)
+               (cond 
+                 ((stringp word) :type-I)         ; "aaa"
+                 ((eq :nl word) :type-IV)         ; :nl
+                 ((stringp (cdr word)) :type-II)  ; (:key . "aaa")
+                 ((>= (length word) 3) :type-III) ; (:key "aaa" "bbb" ...)
+                 (t (assert (not "illegal format")))))
 
-        ;(print `(:style-desc ,style-desc))
-        (if (and (listp word)
-                 (listp style-desc)
-                 (not (listp updated-word)))
-          (setf style-desc (car style-desc)))
+             (get-string-word (word type)
+               (ecase type
+                 (:type-I word)
+                 (:type-II (cdr word))
+                 (:type-III (cdr word))
+                 (:type-IV word)))
 
-        ; あまりきれいではないが
-        ; 両方に対応 後者は使わないかも
-        ;(:document-triple-single-quote () `(:span :class "python-document" ,arg) `(:span :class "python-document" ,@arg) (:br))
-        ;(:document-triple-single-quote () `(:span :class "python-document" ,arg) `(:span :class "python-document" ,@arg) (:br) `(:span ,arg))
+             ;
+             ; 両方のタイプに対応 後者は使わないかも
+             ;(:document-triple-single-quote () `(:span :class "python-document" ,arg) `(:span :class "python-document" ,@arg) (:br))
+             ;(:document-triple-single-quote () `(:span :class "python-document" ,arg) `(:span :class "python-document" ,@arg) (:br) `(:span ,arg))
+             ;
+             (get-style (type word style-list)
+                (let ((key (and (not (stringp word)) 
+                                (not (eq :nl word))
+                                (car word))))
+                  (ecase type
+                    (:type-I (find-style-by-string word style-list))
+                    (:type-II (find-style-by-key key style-list))
+                    (:type-III (find-style-by-key key style-list))
+                    (:type-IV nil))))
 
-        (when (listp updated-word)
-          (assert (listp style-desc))
-          (assert (reduce #'eq (mapcar #'stringp updated-word)))
+             (concat-list0 (word-lst delim span-style-desc)
+               (let* ((style-lambda (if span-style-desc (eval `(make-style-lambda ,span-style-desc)) #'(lambda (x) x))))
+                 (insert-item
+                   (mapcar #'(lambda (word) (funcall style-lambda word)) word-lst) delim))))
 
-          (let ((new-style-desc (cadr style-desc))
-                (delim (caddr style-desc))
-                (one-style-desc (cadddr style-desc)))
+      (let* ((type (get-type word))
+             (word-str (get-string-word word type)))
+        (multiple-value-bind (quote-style-desc splice-style-desc delim span-style-desc)
+            (get-style type word style-list)
 
-            ;(print `(:one-style-desc ,one-style-desc :new-style-desc ,new-style-desc))
-            ;(assert (eq (car delim) :br))
-            (setf style-desc new-style-desc)
+          (if (null quote-style-desc) 
+            (if (listp word-str) 
+              (apply #'concatenate 'string word-str)
+              word-str)
 
-            (if one-style-desc
-              (let ((one-style-lambda (eval `(make-style-lambda ,one-style-desc))))
-                (setf updated-word 
-                      (insert-item
-                        (mapcar #'(lambda (word) (funcall one-style-lambda word)) updated-word) delim)))
-              (setf updated-word (insert-item updated-word delim)))))
-        ;(print `(:xxxxupdated-word ,updated-word ,style-desc))
-
-        #+:debug
-        (when style-desc
-          (print `(:updated-word ,updated-word ,style-desc))
-          (print `(make-style-lambda ,style-desc))
-          (print (eval `(make-style-lambda ,style-desc)))
-          (print (funcall (eval `(make-style-lambda ,style-desc)) updated-word )))
-        (if (null style-desc) updated-word
-          (let* ((style-lambda (eval `(make-style-lambda ,style-desc))))
-              (funcall style-lambda updated-word))
-            ;updated-word
-            )))))
+            (let* ((style-desc (if (eq type :type-III) splice-style-desc quote-style-desc))
+                   (style-lambda (eval `(make-style-lambda ,style-desc)))
+                   (ins-word (if (eq type :type-III)
+                               (concat-list0 word-str delim span-style-desc)
+                               word-str)))
+              (funcall style-lambda ins-word))))))))
 
 ;;----------------------------------------------------------------
 (defun parse-python (file-name &optional base-opt-lst)
