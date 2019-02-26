@@ -7,7 +7,9 @@
 
 ;----------------------------------------------------------------
 (defun read-file-as-list (file-name)
-  (with-open-file (in file-name :direction :input)
+  (with-open-file (in 
+                    (asdf:system-relative-pathname :cl-markdown-qit file-name)
+                    :direction :input)
     (labels ((read-all (rv)
               (let ((line (read-line in nil :eof)))
                 (if (eq line :eof) (nreverse rv)

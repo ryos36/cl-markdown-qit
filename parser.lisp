@@ -126,7 +126,7 @@
   ; 何のための対応か不明。削除予定
   ;(if (atom (car opt-lst)) nil)
   ;(print `(:key-list ,key-list :opt-lst ,opt-lst))
-  (if (null key-list) (prog1 opt-lst (setf *first-opt* nil))
+  (if (null key-list) opt-lst
     (get-tag-item (cdr key-list)
                   (cdr (assoc (car key-list) opt-lst)))))
 
