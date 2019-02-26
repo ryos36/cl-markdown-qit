@@ -13,9 +13,12 @@
         (:keyword ("def" "for" "range" "return") `(:span :class "python-keyword" ,arg))
         (:string-single-quote () `(:span :class "python-string" ,arg))
         (:string-double-quote () `(:span :class "python-string" ,arg))
-        (:document-triple-single-quote () `(:div :class "xpython-document" ,arg))
-        (:document-triple-double-quote () `(:div :class "xpython-document" ,arg))
-        (:comment () `(:div :class "xpython-comment" ,arg))
+        (:document-triple-single-quote () `(:span :class "python-document" ,arg)
+                                       `(:span ,arg)
+                                       (:br)
+                                       `(:span :class "python-document" ,@arg))
+        (:document-triple-double-quote () `(:span :class "python-document" ,arg))
+        (:comment () `(:span :class "python-comment" ,arg))
         ))))
 
 (defun make-keyword (str)
@@ -156,8 +159,12 @@
          (remove nil 
           (mapcar 
             #'(lambda (i) 
-                (if (and (listp i) (eq (car i) 'SYSTEM::UNQUOTE)) (cadr i)))
-
+                (if (listp i) 
+                  (let ((qkey (car i))
+                        (arg-sym (cadr i)))
+                    (if (or (eq qkey 'SYSTEM::UNQUOTE)
+                            (eq qkey 'SYSTEM::SPLICE))
+                      arg-sym))))
             (cadr style-desc))) :from-end t) ,style-desc))
 
 ;----------------------------------------------------------------

@@ -1,17 +1,28 @@
-(setf x '`(:span :class "python-keyword" ,arg))
+(setf lst-with-unquote '`(:span :class "python-keyword" ,arg))
+(setf lst-with-splice '`(:span :class "python-keyword" ,@arg))
 
-(defmacro make-style-lambda (style-desc)
+(defmacro make-style-lambda (style-desc) 
   `#'(lambda ,
-       (remove-duplicates
-         (remove nil
-          (mapcar
-            #'(lambda (i)
-                (if (and (listp i) (eq (car i) 'SYSTEM::UNQUOTE)) (cadr i)))
-
+       (remove-duplicates 
+         (remove nil 
+          (mapcar 
+            #'(lambda (i) 
+                (if (listp i) 
+                  (let ((qkey (car i))
+                        (arg-sym (cadr i)))
+                    (if (or (eq qkey 'SYSTEM::UNQUOTE)
+                            (eq qkey 'SYSTEM::SPLICE))
+                      arg-sym))))
             (cadr style-desc))) :from-end t) ,style-desc))
 
-(print (eval `(make-style-lambda ,x)))
+(print (eval `(make-style-lambda ,lst-with-unquote)))
+(print (funcall (eval `(make-style-lambda ,lst-with-unquote)) "def"))
+(print (funcall (eval `(make-style-lambda ,lst-with-unquote)) '("xyz" "abc")))
+(print (eval `(make-style-lambda ,lst-with-splice)))
+(print (funcall (eval `(make-style-lambda ,lst-with-splice)) '("xyz" "abc")))
+(print (funcall (eval `(make-style-lambda ,lst-with-splice)) "xyz"))
 
+#|
 (setf lst '(
             "abc"
             (:comment . "# 0iji") :nl
@@ -150,3 +161,4 @@
                 (concat-tagged-list arg-remain arg-rv)))))))))
 
 (print `(:concat-tagged-list ,(concat-tagged-list lst)))
+|#
