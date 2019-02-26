@@ -257,9 +257,11 @@
                                                  )) rv)
                    (to-block updated-who-nl-list rv))))
 
+             (my-nreverse (lst)
+                          lst)
              (make-return-value (lst)
                (mapcar #'python-tagged-list-to-who-style 
-                      (nreverse (concat-tagged-list (nreverse lst)))))
+                      (my-nreverse (concat-tagged-list (my-nreverse lst)))))
              ; RYOS TODO ryos todo ToDo
              ; nreverse は整理しなければならない
 
@@ -308,9 +310,10 @@
 
       (to-block
         (make-return-value
+          (print 
           (escape-to
             (nread-until-end-of-block nil)
-            nil))
+            nil)))
         nil))))
 
 ;----------------------------------------------------------------
@@ -325,13 +328,14 @@
 
 (defun python-tagged-list-to-who-style (word &optional add-opt-lst)
   ;(print `(:tagged-list ,word ,(if (listp word) (length (cdr word)))))
-  (let ((style-list (get-tag-item '(:python :style) *lang-set*)))
-    (labels ((deprecated-find-style (word)
-               (if (listp word) 
-                 (find-style-by-key (car word) style-list)
-                 (find-style-by-string word style-list)))
-
-             (find-style-by-string (word s-lst)
+  (let ((style-list 
+          (nconc
+            (copy-tree
+              (cadr (assoc :style add-opt-lst)))
+            (copy-tree
+              (get-tag-item '(:python :style) *lang-set*)))))
+    ;(print `(:style ,style-list))
+    (labels ((find-style-by-string (word s-lst)
                (if (null s-lst) nil
                  (let* ((one-desc (car s-lst))
                         (key (car one-desc))

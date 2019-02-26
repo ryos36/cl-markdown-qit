@@ -304,12 +304,12 @@
                    (new-remain-lst (cddr remain-lst)))
    
                (if (or (not (eq target-first-word :nl))
-                       (not (listp target-second-word))) (values (nreverse rv) remain-lst)
+                       (not (listp target-second-word))) (values rv remain-lst)
    
                  (let ((target-second-keyword (car target-second-word))
                        (target-second-str (cdr target-second-word)))
                    (if (or (not (eq first-keyword target-second-keyword))
-                           (not (stringp target-second-str))) (values (nreverse rv) remain-lst)
+                           (not (stringp target-second-str))) (values rv remain-lst)
                      (concat-tagged-list-loop first-keyword new-remain-lst 
                                           (cons target-second-str rv)))))))
    
