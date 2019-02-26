@@ -15,3 +15,7 @@
                 (if (eq line :eof) (nreverse rv)
                   (read-all (push line rv))))))
       (read-all nil))))
+
+;----------------------------------------------------------------
+(defun make-option-list ()
+  (list (list :current-line)))

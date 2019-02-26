@@ -253,9 +253,9 @@
                                                  )) rv)
                    (to-block updated-who-nl-list rv))))
 
-             (make-return-value (rv)
+             (make-return-value (lst)
                (mapcar #'python-tagged-list-to-who-style 
-                      (nreverse (concat-tagged-list (nreverse rv)))))
+                      (nreverse (concat-tagged-list (nreverse lst)))))
              ;RYOS TODO ryos todo ToDo
 
              (escape-to (lst rv)

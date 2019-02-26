@@ -1,14 +1,17 @@
 #-:asdf (load "/usr/share/common-lisp/source/cl-asdf/asdf.lisp")
-(require 'cl-ppcre)
-(require 'cl-who)
-(defun mf (str) (multiple-value-bind (a b c d) (cl-ppcre:scan *pattern* str) `(,(subseq str a b) ,@(map 'list #'(lambda (x y) (subseq str x y)) c d))))
+(with-output-to-string (*error-output*) 
+  (require 'cl-ppcre)
+  (require 'cl-who))
+
 (defparameter *pattern* "^```([A-Za-z][^:]*):?([\\S]*)")
+(defun mf (str) (multiple-value-bind (a b c d) (cl-ppcre:scan *pattern* str) `(,(subseq str a b) ,@(map 'list #'(lambda (x y) (subseq str x y)) c d))))
 (mf "```python:hhh.py :hebereke")
 
 (make-package 'cl-markdown-qit)
-(load "utils.lisp")
-(load "python-parser.lisp")
-(load "parser.lisp")
+(with-output-to-string (*error-output*) 
+  (load "utils.lisp" :verbose nil)
+  (load "python-parser.lisp")
+  (load "parser.lisp"))
 
 (in-package "CL-MARKDOWN-QIT")
 #|
@@ -298,4 +301,10 @@
 ;(print `(*lang-set* ,*lang-set*))
 |#
 
-(print `(:markdown ,(markdown "adpcm_nl.py")))
+;(print `(:markdown ,(markdown "adpcm_nl.py")))
+(compile 'python-parser)
+(print `(:python-parser ,(with-open-file (in "test/chenidct.py")
+          (python-parser in (make-option-list)))))
+
+(print `(:python-parser ,(with-open-file (in "test/adpcm.py")
+          (python-parser in (make-option-list)))))
